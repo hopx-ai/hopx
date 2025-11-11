@@ -1,0 +1,113 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+.venv/
+venv/
+ENV/
+env/
+*.env
+
+# JavaScript/Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+.pnp
+.pnp.js
+coverage/
+.nyc_output
+*.tsbuildinfo
+
+# Build artifacts
+dist/
+build/
+*.whl
+*.tar.gz
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+secrets/
+
+# Testing & Development
+test_cookbooks.sh
+*.log
+*.tmp
+tmp/
+temp/
+.cache/
+
+# Package managers
+package-lock.json.bak
+yarn.lock.bak
+
+# Documentation build
+docs/_build/
+site/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
