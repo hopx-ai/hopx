@@ -1,6 +1,6 @@
 {
   "name": "@hopx-ai/sdk",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "description": "Official TypeScript/JavaScript SDK for HOPX.AI Sandboxes - 100% feature coverage",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

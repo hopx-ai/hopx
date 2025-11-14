@@ -425,7 +425,6 @@ async function streamLogs(
   options: BuildOptions
 ): Promise<void> {
   let offset = 0;
-  let lastProgress = -1;
   
   while (true) {
     try {
