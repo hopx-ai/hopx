@@ -99,6 +99,7 @@ class BuildOptions:
     on_log: Optional[Callable[[Dict[str, Any]], None]] = None
     on_progress: Optional[Callable[[int], None]] = None
     update: bool = False  # Set to True to update existing template
+    template_activation_timeout: Optional[int] = None  # Max seconds to wait for template activation (default: 2700 = 45min)
 
 
 @dataclass

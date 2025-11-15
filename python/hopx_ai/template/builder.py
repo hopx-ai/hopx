@@ -383,18 +383,18 @@ class Template:
     def get_steps(self) -> List[Step]:
         """Get all steps (excludes FROM - that's in from_image)"""
         return self.steps
-    
+
     def get_start_cmd(self) -> Optional[str]:
         """Get start command"""
         return self.start_cmd
-    
+
     def get_ready_check(self) -> Optional[ReadyCheck]:
         """Get ready check"""
         return self.ready_check
-    
+
     @staticmethod
     async def build(template: 'Template', options: BuildOptions) -> BuildResult:
-        """Build the template"""
+        """Build the template and wait for it to become active."""
         return await build_template(template, options)
 
 

@@ -109,15 +109,48 @@ async def build_template(template, options: BuildOptions) -> BuildResult:
     # Step 5: Poll status until complete
     # Note: Status endpoint uses build_id
     final_status = await poll_status(build_response.build_id, base_url, options)
-    
+
     # Status "active" means template is ready
     if final_status.status not in ["active", "success"]:
-        raise Exception(f"Build failed: {final_status.error_message or 'Unknown error'}")
+        # Get build logs to show actual error
+        error_details = final_status.error_message or "Unknown error"
+
+        # Try to get more details from build logs
+        try:
+            logs_response = await get_logs(
+                template_id=build_response.template_id,
+                base_url=base_url,
+                options=options,
+                offset=0
+            )
+
+            # Find error messages in logs
+            if logs_response and logs_response.logs:
+                error_logs = [log for log in logs_response.logs if "ERROR" in log or "failed" in log.lower()]
+                if error_logs:
+                    error_details = "\n".join(error_logs[-3:])  # Last 3 error lines
+        except Exception:
+            pass  # If we can't get logs, use error_message
+
+        raise Exception(
+            f"Template build failed.\n"
+            f"Build ID: {build_response.build_id}\n"
+            f"Template ID: {build_response.template_id}\n"
+            f"Status: {final_status.status}\n"
+            f"Error: {error_details}\n"
+            f"Check logs at: {build_response.logs_url}"
+        )
     
-    # Step 6: Wait for template to be published (background job: publishing → active)
-    # Build is done, but template needs to be published to public API
+    # Step 6: Wait for template status to become "active"
+    # Build completes but template goes: success → publishing → active
+    # Only "active" templates can be used to create sandboxes
     template_id = final_status.template_id
-    await wait_for_template_active(template_id, base_url, options)
+    await wait_for_template_active(
+        template_id,
+        base_url,
+        options,
+        max_wait_seconds=options.template_activation_timeout
+    )
     
     # Calculate duration
     try:
@@ -471,52 +504,74 @@ async def wait_for_template_active(
     template_id: str,
     base_url: str,
     options: BuildOptions,
-    max_wait_seconds: int = 60,
+    max_wait_seconds: Optional[int] = None,
 ) -> None:
     """
-    Wait for template to be published and active in public API.
-    
-    After build completes, a background job publishes the template:
-    - Build done (success) → publishing → active
-    
-    This ensures the template is immediately usable after Template.build() returns.
+    Wait for template status to become "active".
+
+    Templates must be "active" before they can be used to create sandboxes.
+    Polls GET /v1/templates/{id} until status="active".
+
+    Args:
+        template_id: Template ID to monitor
+        base_url: API base URL
+        options: Build options
+        max_wait_seconds: Maximum wait time (default: 45 minutes, configurable via HOPX_MAX_TEMPLATE_WAIT)
+
+    Raises:
+        Exception: If template activation fails or times out
     """
     async with aiohttp.ClientSession() as session:
         start_time = time.time()
-        
-        while time.time() - start_time < max_wait_seconds:
+        last_status = None
+
+        # Priority: parameter > env var > default (45 minutes)
+        if max_wait_seconds is None:
+            max_wait_seconds = int(os.environ.get('HOPX_MAX_TEMPLATE_WAIT', '2700'))  # 45 minutes
+
+        max_wait = max_wait_seconds
+
+        while time.time() - start_time < max_wait:
             try:
                 async with session.get(
                     f"{base_url}/v1/templates/{template_id}",
-                    headers={
-                        "Authorization": f"Bearer {options.api_key}",
-                    },
+                    headers={"Authorization": f"Bearer {options.api_key}"},
                 ) as response:
                     if response.ok:
                         data = await response.json()
-                        status = data.get('status', '')
-                        
+                        status = data.get('status', 'unknown')
+
+                        if status != last_status:
+                            if options.on_log:
+                                options.on_log({'message': f'Template status: {status}'})
+                            last_status = status
+
                         if status == 'active':
-                            # Template is published and ready!
                             if options.on_log:
-                                options.on_log({'message': f'✅ Template published and active (ID: {template_id})'})
+                                options.on_log({'message': f'✅ Template active (ID: {template_id})'})
                             return
-                        elif status == 'failed':
-                            raise Exception(f"Template publishing failed")
-                        elif status in ['building', 'publishing']:
-                            # Still processing, wait more
-                            if options.on_log:
-                                options.on_log({'message': f'⏳ Template status: {status}, waiting for active...'})
-                    
-            except Exception as e:
-                # Template might not be visible yet, continue waiting
-                pass
-            
-            await asyncio.sleep(2)  # Check every 2 seconds
-        
-        # Timeout - but don't fail, template might still become active later
-        if options.on_log:
-            options.on_log({'message': f'⚠️  Template not yet active after {max_wait_seconds}s, but build succeeded'})
+
+                        if status == 'failed':
+                            error = data.get('error_message', 'Unknown error')
+                            raise Exception(f"Template activation failed: {error}")
+
+                        # Continue polling for: building, publishing, pending
+
+            except aiohttp.ClientError as e:
+                # Network errors - log but continue retrying
+                if time.time() - start_time > 60:  # Log after 1 min
+                    if options.on_log:
+                        options.on_log({'message': f'Network error polling template status, retrying...'})
+
+            await asyncio.sleep(2)
+
+        # Timeout reached
+        minutes = max_wait / 60
+        raise Exception(
+            f"Template {template_id} did not become active within {minutes:.0f} minutes. "
+            f"Last status: {last_status or 'unknown'}. "
+            f"This may indicate an API issue or the template is still processing."
+        )
 
 
 async def get_logs(

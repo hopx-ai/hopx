@@ -479,7 +479,7 @@ class Sandbox:
         """
         # Create HTTP client
         client = HTTPClient(api_key=api_key, base_url=base_url)
-        
+
         # Validate parameters
         if template_id:
             # Create from template ID (resources from template)

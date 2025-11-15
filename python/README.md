@@ -313,6 +313,29 @@ sandbox = Sandbox.create(
 
 Get your API key at [hopx.ai/dashboard](https://hopx.ai/dashboard)
 
+## ⚙️ Configuration
+
+### Template Activation Timeout
+
+`Template.build()` waits for templates to reach "active" status before returning. Default: 45 minutes.
+
+**Via environment variable:**
+```bash
+export HOPX_TEMPLATE_ACTIVATION_TIMEOUT=2700  # seconds (45 min default)
+```
+
+**Via BuildOptions:**
+```python
+result = await Template.build(
+    template,
+    BuildOptions(
+        name="my-template",
+        api_key="...",
+        template_activation_timeout=1800  # 30 minutes
+    )
+)
+```
+
 ## 🎓 Templates
 
 Pre-built templates available:
