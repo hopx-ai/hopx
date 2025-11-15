@@ -184,8 +184,8 @@ class Resources(BaseModel):
 
 
 class SandboxInfo(BaseModel):
-    """Sandbox information."""
-    
+    """Sandbox information from Public API."""
+
     sandbox_id: str = Field(..., description="Sandbox ID")
     template_id: Optional[str] = Field(None, description="Template ID")
     template_name: Optional[str] = Field(None, description="Template name")
@@ -194,14 +194,22 @@ class SandboxInfo(BaseModel):
     region: Optional[str] = Field(None, description="Region")
     status: str = Field(..., description="Sandbox status (running, stopped, paused, creating)")
     public_host: str = Field(..., description="Public URL to access sandbox")
+    direct_url: Optional[str] = Field(None, description="Direct VM URL (alternative to public_host)")
+    preview_url: Optional[str] = Field(None, description="Preview URL for sandbox")
     resources: Optional[Resources] = Field(None, description="Resource allocation")
-    started_at: Optional[datetime] = Field(None, description="When sandbox started")
-    end_at: Optional[datetime] = Field(None, description="When sandbox will be terminated")
+    internet_access: Optional[bool] = Field(None, description="Whether VM has internet access")
+    live_mode: Optional[bool] = Field(None, description="True for production, false for test")
+    timeout_seconds: Optional[int] = Field(None, description="Auto-kill timeout in seconds (NULL = no timeout)")
+    expires_at: Optional[datetime] = Field(None, description="Timestamp when VM will be auto-killed (NULL = no timeout)")
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")
-    
+
+    # Deprecated/legacy fields (kept for backward compatibility)
+    started_at: Optional[datetime] = Field(None, description="[Legacy] When sandbox started")
+    end_at: Optional[datetime] = Field(None, description="[Legacy] Alias for expires_at")
+
     def __repr__(self) -> str:
         return f"<SandboxInfo {self.sandbox_id}: {self.status}>"
-    
+
     def __str__(self) -> str:
         return f"SandboxInfo(sandbox_id={self.sandbox_id}, status={self.status}, url={self.public_host})"
 
@@ -215,8 +223,8 @@ class TemplateResources(BaseModel):
 
 
 class Template(BaseModel):
-    """VM template."""
-    
+    """VM template from Public API."""
+
     id: str = Field(..., description="Template ID")
     name: str = Field(..., description="Template name (slug)")
     display_name: str = Field(..., description="Display name")
@@ -232,8 +240,15 @@ class Template(BaseModel):
     popularity_score: Optional[int] = None
     docs_url: Optional[str] = None
     is_active: bool = Field(default=True)
-    status: Optional[str] = Field(None, description="Template status: building, publishing, active, failed")
-    
+    is_public: Optional[bool] = Field(None, description="Whether template is public (vs organization-specific)")
+    status: Optional[str] = Field(None, description="Template status: pending, building, active, failed, archived")
+    build_id: Optional[str] = Field(None, description="Build ID (for logs)")
+    organization_id: Optional[str] = Field(None, description="Organization ID (if organization-specific)")
+    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
+    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
+    object: Optional[str] = Field(None, description="Object type (always 'template')")
+    request_id: Optional[str] = Field(None, description="Request ID for this operation")
+
     def __repr__(self) -> str:
         return f"<Template {self.name}: {self.display_name}>"
 

@@ -340,15 +340,15 @@ class AsyncSandbox:
     ) -> Template:
         """
         Get template details (async).
-        
+
         Args:
             name: Template name
             api_key: API key
             base_url: API base URL
-        
+
         Returns:
             Template object
-        
+
         Example:
             >>> template = await AsyncSandbox.get_template("nodejs")
             >>> print(template.description)
@@ -356,7 +356,74 @@ class AsyncSandbox:
         client = AsyncHTTPClient(api_key=api_key, base_url=base_url)
         response = await client.get(f"/v1/templates/{name}")
         return Template(**response)
-    
+
+    @classmethod
+    async def delete_template(
+        cls,
+        template_id: str,
+        *,
+        api_key: Optional[str] = None,
+        base_url: str = "https://api.hopx.dev",
+    ) -> Dict[str, Any]:
+        """
+        Delete a custom template (async).
+
+        Only organization-owned templates can be deleted. Public templates cannot be deleted.
+
+        Args:
+            template_id: Template ID to delete
+            api_key: API key (or use HOPX_API_KEY env var)
+            base_url: API base URL
+
+        Returns:
+            Dict with deletion confirmation
+
+        Raises:
+            NotFoundError: Template not found
+            ValidationError: Cannot delete public templates
+            AuthenticationError: Invalid API key
+
+        Example:
+            >>> result = await AsyncSandbox.delete_template("template_123abc")
+            >>> print(result)
+        """
+        client = AsyncHTTPClient(api_key=api_key, base_url=base_url)
+        response = await client.delete(f"/v1/templates/{template_id}")
+        return response
+
+    @classmethod
+    async def health_check(
+        cls,
+        *,
+        base_url: str = "https://api.hopx.dev",
+    ) -> Dict[str, Any]:
+        """
+        Check API health status (async).
+
+        This endpoint does not require authentication and can be used to verify
+        API availability and connectivity.
+
+        Args:
+            base_url: API base URL (default: production)
+
+        Returns:
+            Dict with health status information
+
+        Example:
+            >>> health = await AsyncSandbox.health_check()
+            >>> print(health)  # {'status': 'ok', ...}
+        """
+        # Use a minimal async client without API key for health check
+        import aiohttp
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{base_url.rstrip('/')}/health", timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    response.raise_for_status()
+                    return await response.json()
+        except aiohttp.ClientError as e:
+            from .errors import NetworkError
+            raise NetworkError(f"Health check failed: {e}")
+
     # =============================================================================
     # INSTANCE METHODS (for managing individual sandbox)
     # =============================================================================
@@ -364,30 +431,66 @@ class AsyncSandbox:
     async def get_info(self) -> SandboxInfo:
         """
         Get current sandbox information (async).
-        
+
         Returns:
             SandboxInfo with current state
-        
+
         Example:
             >>> info = await sandbox.get_info()
             >>> print(f"Status: {info.status}")
+            >>> print(f"Internet access: {info.internet_access}")
+            >>> if info.expires_at:
+            ...     print(f"Expires at: {info.expires_at}")
         """
         response = await self._client.get(f"/v1/sandboxes/{self.sandbox_id}")
+
+        # Parse resources if present
+        resources = None
+        if response.get("resources"):
+            from .models import Resources
+            resources = Resources(
+                vcpu=response["resources"]["vcpu"],
+                memory_mb=response["resources"]["memory_mb"],
+                disk_mb=response["resources"]["disk_mb"]
+            )
+
+        # Parse timestamps
+        created_at = None
+        if response.get("created_at"):
+            try:
+                from datetime import datetime
+                created_at = datetime.fromisoformat(response["created_at"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        expires_at = None
+        if response.get("expires_at"):
+            try:
+                from datetime import datetime
+                expires_at = datetime.fromisoformat(response["expires_at"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
         return SandboxInfo(
             sandbox_id=response["id"],
             template_id=response.get("template_id"),
             template_name=response.get("template_name"),
-            organization_id=response.get("organization_id", ""),
+            organization_id=response.get("organization_id", 0),
             node_id=response.get("node_id"),
             region=response.get("region"),
             status=response["status"],
             public_host=response.get("public_host") or response.get("direct_url", ""),
-            vcpu=response.get("resources", {}).get("vcpu"),
-            memory_mb=response.get("resources", {}).get("memory_mb"),
-            disk_mb=response.get("resources", {}).get("disk_mb"),
-            created_at=response.get("created_at"),
+            direct_url=response.get("direct_url"),
+            preview_url=response.get("preview_url"),
+            resources=resources,
+            internet_access=response.get("internet_access"),
+            live_mode=response.get("live_mode"),
+            timeout_seconds=response.get("timeout_seconds"),
+            expires_at=expires_at,
+            created_at=created_at,
+            # Legacy fields for backward compatibility
             started_at=None,
-            end_at=None,
+            end_at=expires_at,  # Map expires_at to end_at for backward compat
         )
     
     async def stop(self) -> None:

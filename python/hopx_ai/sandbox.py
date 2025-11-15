@@ -820,18 +820,18 @@ class Sandbox:
     ) -> Template:
         """
         Get template details.
-        
+
         Args:
             name: Template name
             api_key: API key (or use HOPX_API_KEY env var)
             base_url: API base URL
-        
+
         Returns:
             Template object
-        
+
         Raises:
             NotFoundError: Template not found
-        
+
         Example:
             >>> template = Sandbox.get_template("code-interpreter")
             >>> print(template.description)
@@ -840,7 +840,77 @@ class Sandbox:
         client = HTTPClient(api_key=api_key, base_url=base_url)
         response = client.get(f"/v1/templates/{name}")
         return Template(**response)
-    
+
+    @classmethod
+    def delete_template(
+        cls,
+        template_id: str,
+        *,
+        api_key: Optional[str] = None,
+        base_url: str = "https://api.hopx.dev",
+    ) -> Dict[str, Any]:
+        """
+        Delete a custom template.
+
+        Only organization-owned templates can be deleted. Public templates cannot be deleted.
+
+        Args:
+            template_id: Template ID to delete
+            api_key: API key (or use HOPX_API_KEY env var)
+            base_url: API base URL
+
+        Returns:
+            Dict with deletion confirmation
+
+        Raises:
+            NotFoundError: Template not found
+            ValidationError: Cannot delete public templates
+            AuthenticationError: Invalid API key
+
+        Example:
+            >>> # Delete a custom template by ID
+            >>> result = Sandbox.delete_template("template_123abc")
+            >>> print(result)
+        """
+        client = HTTPClient(api_key=api_key, base_url=base_url)
+        response = client.delete(f"/v1/templates/{template_id}")
+        return response
+
+    @classmethod
+    def health_check(
+        cls,
+        *,
+        base_url: str = "https://api.hopx.dev",
+    ) -> Dict[str, Any]:
+        """
+        Check API health status.
+
+        This endpoint does not require authentication and can be used to verify
+        API availability and connectivity.
+
+        Args:
+            base_url: API base URL (default: production)
+
+        Returns:
+            Dict with health status information
+
+        Example:
+            >>> health = Sandbox.health_check()
+            >>> print(health)  # {'status': 'ok', ...}
+
+            >>> # Check custom/staging API
+            >>> health = Sandbox.health_check(base_url="https://staging-api.hopx.dev")
+        """
+        # Use a minimal client without API key for health check
+        import httpx
+        try:
+            response = httpx.get(f"{base_url.rstrip('/')}/health", timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            from .errors import NetworkError
+            raise NetworkError(f"Health check failed: {e}")
+
     # =============================================================================
     # INSTANCE METHODS (for managing individual sandbox)
     # =============================================================================
@@ -848,22 +918,24 @@ class Sandbox:
     def get_info(self) -> SandboxInfo:
         """
         Get current sandbox information.
-        
+
         Returns:
             SandboxInfo with current state
-        
+
         Raises:
             NotFoundError: Sandbox not found
-        
+
         Example:
             >>> sandbox = Sandbox.create(template="nodejs")
             >>> info = sandbox.get_info()
             >>> print(f"Status: {info.status}")
             >>> print(f"URL: {info.public_host}")
-            >>> print(f"Ends at: {info.end_at}")
+            >>> print(f"Internet access: {info.internet_access}")
+            >>> if info.expires_at:
+            ...     print(f"Expires at: {info.expires_at}")
         """
         response = self._client.get(f"/v1/sandboxes/{self.sandbox_id}")
-        
+
         # Parse resources if present
         resources = None
         if response.get("resources"):
@@ -873,20 +945,44 @@ class Sandbox:
                 memory_mb=response["resources"]["memory_mb"],
                 disk_mb=response["resources"]["disk_mb"]
             )
-        
+
+        # Parse timestamps
+        created_at = None
+        if response.get("created_at"):
+            try:
+                from datetime import datetime
+                created_at = datetime.fromisoformat(response["created_at"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        expires_at = None
+        if response.get("expires_at"):
+            try:
+                from datetime import datetime
+                expires_at = datetime.fromisoformat(response["expires_at"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
         return SandboxInfo(
             sandbox_id=response["id"],
             template_id=response.get("template_id"),
             template_name=response.get("template_name"),
-            organization_id=response.get("organization_id", ""),
+            organization_id=response.get("organization_id", 0),
             node_id=response.get("node_id"),
             region=response.get("region"),
             status=response["status"],
             public_host=response.get("public_host") or response.get("direct_url", ""),
+            direct_url=response.get("direct_url"),
+            preview_url=response.get("preview_url"),
             resources=resources,
-            created_at=response.get("created_at"),
-            started_at=None,  # TODO: Add when API provides it
-            end_at=None,  # TODO: Add when API provides it
+            internet_access=response.get("internet_access"),
+            live_mode=response.get("live_mode"),
+            timeout_seconds=response.get("timeout_seconds"),
+            expires_at=expires_at,
+            created_at=created_at,
+            # Legacy fields for backward compatibility
+            started_at=None,
+            end_at=expires_at,  # Map expires_at to end_at for backward compat
         )
     
     def get_agent_metrics(self) -> Dict[str, Any]:
