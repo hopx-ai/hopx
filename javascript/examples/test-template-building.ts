@@ -237,43 +237,120 @@ async function testBuildTemplateWithCopy(): Promise<void> {
   printHeader('Step 2c: Build Template - With COPY Step');
   
   printStep(`Building template with COPY step: ${TEST_TEMPLATE_NAME}-copy`);
-  printStep(`Using filesHash: ${TEST_FILES_HASH}`);
   
   try {
-    // Note: For COPY to work properly with the API, we use direct API call
-    // because the SDK handles file uploads automatically
+    // Create temporary directory with files to copy
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hopx-test-'));
     
-    const response = await fetch(`${API_BASE_URL}/v1/templates/build`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      // Create test files
+      fs.writeFileSync(path.join(tempDir, 'app.py'), `
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return 'Hello from HOPX!'
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+`);
+      fs.writeFileSync(path.join(tempDir, 'requirements.txt'), 'flask==3.0.0');
+      
+      printStep(`Created test files in: ${tempDir}`);
+      
+      // Build template using SDK's .copy() method
+      const template = new Template()
+        .fromPythonImage('3.11-slim')
+        .setWorkdir('/app')
+        .copy(tempDir, '/app')  // SDK handles upload automatically
+        .setEnv('FLASK_APP', 'app.py')
+        .runCmd('pip install -r requirements.txt');
+      
+      const buildOptions: BuildOptions = {
         name: `${TEST_TEMPLATE_NAME}-copy`,
+        apiKey: API_KEY,
+        baseURL: API_BASE_URL,
         cpu: 2,
         memory: 2048,
         diskGB: 10,
-        from_image: 'python:3.11-slim',
-        steps: [
-          { type: 'WORKDIR', args: ['/app'] },
-          { type: 'COPY', args: ['/app'], filesHash: TEST_FILES_HASH },
-          { type: 'ENV', args: ['FLASK_APP', 'app.py'] },
-          { type: 'RUN', args: ['pip install -r requirements.txt'] },
-        ]
-      })
-    });
-    
-    if (response.status === 202) {
-      const data = await response.json();
-      printSuccess('Template build triggered (with COPY + real uploaded files)');
-      printSuccess(`Template ID: ${data.template_id}`);
+        onLog: () => {},  // Suppress logs
+      };
       
-      fs.writeFileSync('/tmp/hopx_test_template_id_copy_js.txt', data.template_id);
-    } else {
-      const body = await response.text();
-      printError(`Failed to trigger build (HTTP ${response.status}): ${body}`);
+      const result = await Template.build(template, buildOptions);
+      
+      printSuccess('Template build triggered (with COPY using SDK)');
+      printSuccess(`Template ID: ${result.templateID}`);
+      
+      fs.writeFileSync('/tmp/hopx_test_template_id_copy_js.txt', result.templateID);
+    } finally {
+      // Cleanup temp directory
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
+    
+  } catch (error: any) {
+    printError(`Failed to trigger build: ${error.message}`);
+  }
+}
+
+async function testBuildUbuntuWithApt(): Promise<void> {
+  printHeader('Step 2d: Build Template - Ubuntu with aptInstall');
+  
+  printStep(`Building Ubuntu template with aptInstall: ${TEST_TEMPLATE_NAME}-ubuntu`);
+  
+  try {
+    const template = new Template()
+      .fromUbuntuImage('22.04')
+      .aptInstall('curl', 'git', 'vim')
+      .runCmd('curl --version')
+      .setEnv('MY_VAR', 'test');
+    
+    const buildOptions: BuildOptions = {
+      name: `${TEST_TEMPLATE_NAME}-ubuntu`,
+      apiKey: API_KEY,
+      baseURL: API_BASE_URL,
+      cpu: 2,
+      memory: 1024,
+      diskGB: 5,
+      onLog: () => {},  // Suppress logs
+    };
+    
+    const result = await Template.build(template, buildOptions);
+    
+    printSuccess('Ubuntu template build triggered (with aptInstall)');
+    printSuccess(`Template ID: ${result.templateID}`);
+    
+  } catch (error: any) {
+    printError(`Failed to trigger build: ${error.message}`);
+  }
+}
+
+async function testBuildNodejsTemplate(): Promise<void> {
+  printHeader('Step 2e: Build Template - Node.js');
+  
+  printStep(`Building Node.js template: ${TEST_TEMPLATE_NAME}-nodejs`);
+  
+  try {
+    const template = new Template()
+      .fromNodeImage('20')
+      .runCmd('node --version')
+      .runCmd('npm --version')
+      .setWorkdir('/app');
+    
+    const buildOptions: BuildOptions = {
+      name: `${TEST_TEMPLATE_NAME}-nodejs`,
+      apiKey: API_KEY,
+      baseURL: API_BASE_URL,
+      cpu: 2,
+      memory: 1024,
+      diskGB: 5,
+      onLog: () => {},  // Suppress logs
+    };
+    
+    const result = await Template.build(template, buildOptions);
+    
+    printSuccess('Node.js template build triggered');
+    printSuccess(`Template ID: ${result.templateID}`);
     
   } catch (error: any) {
     printError(`Failed to trigger build: ${error.message}`);

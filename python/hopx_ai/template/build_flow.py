@@ -357,6 +357,11 @@ async def trigger_build(
                 raise Exception(f"Build trigger failed ({response.status}): {error_text}")
             
             data = await response.json()
+            # Ensure template_id and build_id are strings (API returns strings, but enforce it)
+            if "template_id" in data:
+                data["template_id"] = str(data["template_id"])
+            if "build_id" in data:
+                data["build_id"] = str(data["build_id"])
             return BuildResponse(**data)
 
 
@@ -447,6 +452,11 @@ async def poll_status(
                     raise Exception(f"Status check failed ({response.status}): {error_text}")
                 
                 data = await response.json()
+                # Ensure template_id and build_id are strings
+                if "template_id" in data:
+                    data["template_id"] = str(data["template_id"])
+                if "build_id" in data:
+                    data["build_id"] = str(data["build_id"])
                 status = BuildStatusResponse(**data)
                 
                 # Status can be: building, active (success), failed

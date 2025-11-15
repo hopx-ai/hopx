@@ -253,44 +253,125 @@ async def test_build_template_with_copy():
     print_header("Step 2c: Build Template - With COPY Step")
     
     print_step(f"Building template with COPY step: {TEST_TEMPLATE_NAME}-copy")
-    print_step(f"Using filesHash: {TEST_FILES_HASH}")
     
     try:
-        # Note: For COPY to work properly, we need to create the template manually
-        # because the SDK handles file uploads automatically
-        # This is a lower-level test using the build API directly
+        # Create temporary directory with files to copy
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            # Create test files
+            (temp_path / "app.py").write_text("""
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return 'Hello from HOPX!'
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+""")
+            (temp_path / "requirements.txt").write_text("flask==3.0.0")
+            
+            print_step(f"Created test files in: {temp_dir}")
+            
+            # Build template using SDK's .copy() method
+            template = (
+                Template()
+                .from_python_image("3.11-slim")
+                .set_workdir("/app")
+                .copy(str(temp_path), "/app")  # SDK handles upload automatically
+                .set_env("FLASK_APP", "app.py")
+                .run_cmd("pip install -r requirements.txt")
+            )
+            
+            result = await Template.build(
+                template,
+                BuildOptions(
+                    name=f"{TEST_TEMPLATE_NAME}-copy",
+                    api_key=API_KEY,
+                    base_url=API_BASE_URL,
+                    cpu=2,
+                    memory=2048,
+                    disk_gb=10,
+                    on_log=lambda log: None,
+                )
+            )
+            
+            print_success("Template build triggered (with COPY using SDK)")
+            print_success(f"Template ID: {result.template_id}")
+            
+            Path("/tmp/hopx_test_template_id_copy_py.txt").write_text(result.template_id)
         
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{API_BASE_URL}/v1/templates/build",
-                headers={
-                    "Authorization": f"Bearer {API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "name": f"{TEST_TEMPLATE_NAME}-copy",
-                    "cpu": 2,
-                    "memory": 2048,
-                    "diskGB": 10,
-                    "from_image": "python:3.11-slim",
-                    "steps": [
-                        {"type": "WORKDIR", "args": ["/app"]},
-                        {"type": "COPY", "args": ["/app"], "filesHash": TEST_FILES_HASH},
-                        {"type": "ENV", "args": ["FLASK_APP", "app.py"]},
-                        {"type": "RUN", "args": ["pip install -r requirements.txt"]},
-                    ]
-                }
-            ) as response:
-                if response.status == 202:
-                    data = await response.json()
-                    print_success("Template build triggered (with COPY + real uploaded files)")
-                    print_success(f"Template ID: {data['template_id']}")
-                    
-                    Path("/tmp/hopx_test_template_id_copy_py.txt").write_text(data['template_id'])
-                else:
-                    body = await response.text()
-                    print_error(f"Failed to trigger build (HTTP {response.status}): {body}")
+    except Exception as e:
+        print_error(f"Failed to trigger build: {str(e)}")
+
+
+async def test_build_ubuntu_with_apt():
+    """Test Step 2d: Build Template - Ubuntu with apt_install"""
+    print_header("Step 2d: Build Template - Ubuntu with apt_install")
+    
+    print_step(f"Building Ubuntu template with apt_install: {TEST_TEMPLATE_NAME}-ubuntu")
+    
+    try:
+        template = (
+            Template()
+            .from_ubuntu_image("22.04")
+            .apt_install("curl", "git", "vim")
+            .run_cmd("curl --version")
+            .set_env("MY_VAR", "test")
+        )
+        
+        result = await Template.build(
+            template,
+            BuildOptions(
+                name=f"{TEST_TEMPLATE_NAME}-ubuntu",
+                api_key=API_KEY,
+                base_url=API_BASE_URL,
+                cpu=2,
+                memory=1024,
+                disk_gb=5,
+                on_log=lambda log: None,
+            )
+        )
+        
+        print_success("Ubuntu template build triggered (with apt_install)")
+        print_success(f"Template ID: {result.template_id}")
+        
+    except Exception as e:
+        print_error(f"Failed to trigger build: {str(e)}")
+
+
+async def test_build_nodejs_template():
+    """Test Step 2e: Build Template - Node.js"""
+    print_header("Step 2e: Build Template - Node.js")
+    
+    print_step(f"Building Node.js template: {TEST_TEMPLATE_NAME}-nodejs")
+    
+    try:
+        template = (
+            Template()
+            .from_node_image("20")
+            .run_cmd("node --version")
+            .run_cmd("npm --version")
+            .set_workdir("/app")
+        )
+        
+        result = await Template.build(
+            template,
+            BuildOptions(
+                name=f"{TEST_TEMPLATE_NAME}-nodejs",
+                api_key=API_KEY,
+                base_url=API_BASE_URL,
+                cpu=2,
+                memory=1024,
+                disk_gb=5,
+                on_log=lambda log: None,
+            )
+        )
+        
+        print_success("Node.js template build triggered")
+        print_success(f"Template ID: {result.template_id}")
         
     except Exception as e:
         print_error(f"Failed to trigger build: {str(e)}")
@@ -584,6 +665,8 @@ async def main():
     await test_build_template_minimal()
     await test_build_template_full()
     await test_build_template_with_copy()
+    await test_build_ubuntu_with_apt()
+    await test_build_nodejs_template()
     
     await test_validation_errors()
     await test_update_template()

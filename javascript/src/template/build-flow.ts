@@ -409,8 +409,8 @@ async function triggerBuild(
   
   // API returns snake_case
   return {
-    buildID: data.build_id,
-    templateID: data.template_id,
+    buildID: String(data.build_id),  // Ensure string (API returns string, but enforce it)
+    templateID: String(data.template_id),  // Ensure string
     status: data.status,
     logsUrl: data.logs_url,
   };
@@ -518,8 +518,8 @@ async function pollStatus(
     
   // Transform response from snake_case to camelCase
   const status: BuildStatusResponse = {
-    buildID: data.build_id,
-    templateID: data.template_id,
+    buildID: String(data.build_id),  // Ensure string
+    templateID: String(data.template_id),  // Ensure string
     status: data.status,
     progress: data.progress || 0,
     currentStep: data.current_step,
