@@ -66,19 +66,41 @@ class RichOutput(_RichOutput):
 class ExecutionResult(_ExecuteResponse):
     """
     Result of code execution.
-    
+
     Auto-generated from OpenAPI spec (ExecuteResponse) with convenience methods.
     This is an alias for backward compatibility while adding DX improvements.
     """
-    
+    model_config = {"protected_namespaces": ()}  # Allow 'json' field name
+
     # Add rich_outputs field (from /execute/rich endpoint, not in base ExecuteResponse)
     rich_outputs: Optional[List[RichOutput]] = Field(default=None, description="Rich outputs (plots, etc.)")
-    
+
+    # Add missing fields from Agent API v3.2.8 OpenAPI spec
+    svg: Optional[str] = Field(default=None, description="SVG output (image/svg+xml)")
+    markdown: Optional[str] = Field(default=None, description="Markdown output (text/markdown)")
+    html: Optional[str] = Field(default=None, description="HTML output (text/html)")
+    json: Optional[Dict[str, Any]] = Field(default=None, alias="json_output", description="JSON output (application/json)")
+    png: Optional[str] = Field(default=None, description="PNG output base64 (image/png)")
+    result: Optional[str] = Field(default=None, description="Rich output from Jupyter (when available)")
+
     @property
     def rich_count(self) -> int:
         """Number of rich outputs."""
         return len(self.rich_outputs) if self.rich_outputs else 0
-    
+
+    @property
+    def has_rich_output(self) -> bool:
+        """Whether execution produced any rich output."""
+        return bool(
+            self.rich_outputs
+            or self.svg
+            or self.markdown
+            or self.html
+            or self.json
+            or self.png
+            or self.result
+        )
+
     def __repr__(self) -> str:
         status = "✅" if self.success else "❌"
         exec_time = self.execution_time if self.execution_time is not None else 0.0
@@ -88,18 +110,23 @@ class ExecutionResult(_ExecuteResponse):
 class CommandResult(_CommandResponse):
     """
     Result of command execution.
-    
+
     Auto-generated from OpenAPI spec (CommandResponse) with convenience methods.
     """
-    
+
+    # Add missing fields from Agent API v3.2.8 OpenAPI spec
+    pid: Optional[int] = Field(default=None, description="Process ID")
+    success: Optional[bool] = Field(default=None, description="Whether command succeeded")
+
     @property
-    def success(self) -> bool:
+    def is_success(self) -> bool:
         """Whether command succeeded (exit code 0)."""
-        return self.exit_code == 0
-    
+        return self.exit_code == 0 if self.exit_code is not None else False
+
     def __repr__(self) -> str:
-        status = "✅" if self.success else "❌"
-        return f"<CommandResult {status} exit={self.exit_code} time={self.execution_time:.3f}s>"
+        status = "✅" if self.is_success else "❌"
+        exec_time = self.execution_time if self.execution_time is not None else 0.0
+        return f"<CommandResult {status} exit={self.exit_code} time={exec_time:.3f}s>"
 
 
 class FileInfo(_FileInfo):

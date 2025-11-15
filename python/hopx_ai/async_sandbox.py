@@ -632,7 +632,82 @@ class AsyncSandbox:
                     if attempt < max_wait - 1:
                         await asyncio.sleep(retry_delay)
                         continue
-    
+
+    async def get_agent_info(self) -> Dict[str, Any]:
+        """
+        Get VM agent information (async).
+
+        Returns comprehensive information about the VM agent including version,
+        OS, architecture, available endpoints, and supported features.
+
+        Returns:
+            Dict with agent information:
+            - agent: Agent name
+            - agent_version: Agent version
+            - vm_id: VM identifier
+            - os: Operating system
+            - arch: Architecture
+            - features: Available features
+
+        Example:
+            >>> info = await sandbox.get_agent_info()
+            >>> print(f"Agent: {info['agent']} v{info['agent_version']}")
+        """
+        await self._ensure_agent_client()
+
+        response = await self._agent_client.get("/info")
+        return response
+
+    async def get_agent_metrics(self) -> Dict[str, Any]:
+        """
+        Get real-time agent metrics (async).
+
+        Returns:
+            Dict with metrics including uptime, requests, errors
+
+        Example:
+            >>> metrics = await sandbox.get_agent_metrics()
+            >>> print(f"Uptime: {metrics['uptime_seconds']}s")
+        """
+        await self._ensure_agent_client()
+
+        response = await self._agent_client.get("/metrics/snapshot")
+        return response
+
+    async def list_system_processes(self) -> List[Dict[str, Any]]:
+        """
+        List all running system processes (async).
+
+        Returns:
+            List of process dicts with pid, name, status, etc.
+
+        Example:
+            >>> processes = await sandbox.list_system_processes()
+            >>> for proc in processes:
+            ...     print(f"{proc['pid']}: {proc['name']}")
+        """
+        await self._ensure_agent_client()
+
+        response = await self._agent_client.get("/processes")
+        return response.get("processes", [])
+
+    async def get_jupyter_sessions(self) -> List[Dict[str, Any]]:
+        """
+        Get Jupyter kernel session status (async).
+
+        Returns:
+            List of active Jupyter sessions
+
+        Example:
+            >>> sessions = await sandbox.get_jupyter_sessions()
+            >>> for session in sessions:
+            ...     print(f"Kernel: {session.get('kernel_id')}")
+        """
+        await self._ensure_agent_client()
+
+        response = await self._agent_client.get("/jupyter/sessions")
+        return response.get("sessions", [])
+
     async def run_code(
         self,
         code: str,

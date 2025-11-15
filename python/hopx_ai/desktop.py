@@ -1040,7 +1040,7 @@ class Desktop:
             >>> text = sandbox.desktop.ocr(100, 100, 400, 200)
             >>> print(f"Extracted: {text}")
         """
-        self._ensure_available()
+        self._check_availability()
         
         response = self._client.post(
             "/desktop/x11/ocr",
@@ -1073,7 +1073,7 @@ class Desktop:
             >>> if element:
             ...     sandbox.desktop.click(element['x'], element['y'])
         """
-        self._ensure_available()
+        self._check_availability()
         
         response = self._client.post(
             "/desktop/x11/find_element",
@@ -1105,7 +1105,7 @@ class Desktop:
             >>> element = sandbox.desktop.wait_for("Loading complete", timeout=60)
             >>> print(f"Found at: {element['x']}, {element['y']}")
         """
-        self._ensure_available()
+        self._check_availability()
         
         response = self._client.post(
             "/desktop/x11/wait_for",
@@ -1140,7 +1140,7 @@ class Desktop:
             >>> # Drag file to folder
             >>> sandbox.desktop.drag_drop(100, 200, 500, 300)
         """
-        self._ensure_available()
+        self._check_availability()
         
         self._client.post(
             "/desktop/x11/drag_drop",
@@ -1170,7 +1170,7 @@ class Desktop:
             >>> print(f"Button at: {bounds['x']}, {bounds['y']}")
             >>> print(f"Size: {bounds['width']}x{bounds['height']}")
         """
-        self._ensure_available()
+        self._check_availability()
         
         response = self._client.post(
             "/desktop/x11/get_bounds",
@@ -1206,7 +1206,7 @@ class Desktop:
             >>> # Capture specific window
             >>> img = sandbox.desktop.capture_window(window_id="0x1234567")
         """
-        self._ensure_available()
+        self._check_availability()
         
         params = {}
         if window_id:
@@ -1220,7 +1220,104 @@ class Desktop:
         )
         
         return response.content
-    
+
+    def hotkey(
+        self,
+        modifiers: List[str],
+        key: str,
+        *,
+        timeout: Optional[int] = None
+    ) -> None:
+        """
+        Execute hotkey combination (e.g., Ctrl+C, Alt+Tab).
+
+        Args:
+            modifiers: List of modifier keys (e.g., ["ctrl", "shift"])
+            key: Main key to press (e.g., "c", "tab")
+            timeout: Request timeout in seconds
+
+        Example:
+            >>> # Copy: Ctrl+C
+            >>> sandbox.desktop.hotkey(["ctrl"], "c")
+            >>>
+            >>> # Paste: Ctrl+V
+            >>> sandbox.desktop.hotkey(["ctrl"], "v")
+            >>>
+            >>> # Switch window: Alt+Tab
+            >>> sandbox.desktop.hotkey(["alt"], "tab")
+            >>>
+            >>> # Screenshot: Ctrl+Shift+P
+            >>> sandbox.desktop.hotkey(["ctrl", "shift"], "p")
+        """
+        self._check_availability()
+
+        response = self._client.post(
+            "/desktop/x11/hotkey",
+            json={"modifiers": modifiers, "key": key},
+            operation="execute hotkey",
+            timeout=timeout
+        )
+
+        logger.debug(f"Hotkey executed: {modifiers}+{key}")
+
+    def get_debug_logs(self) -> List[str]:
+        """
+        Get desktop automation debug logs.
+
+        Returns debug logs from the desktop automation system, useful for
+        troubleshooting automation issues.
+
+        Returns:
+            List of log lines
+
+        Example:
+            >>> logs = sandbox.desktop.get_debug_logs()
+            >>> for log in logs[-10:]:  # Last 10 lines
+            ...     print(log)
+
+        Note:
+            Requires Agent v3.2.0+. GET /desktop/debug/logs endpoint.
+        """
+        self._check_availability()
+
+        response = self._client.get(
+            "/desktop/debug/logs",
+            operation="get desktop debug logs"
+        )
+
+        data = response.json()
+        return data.get("logs", [])
+
+    def get_debug_processes(self) -> List[Dict[str, Any]]:
+        """
+        Get desktop-related processes for debugging.
+
+        Returns information about X11 and desktop-related processes.
+
+        Returns:
+            List of dicts with process information:
+            - pid: Process ID
+            - name: Process name
+            - command: Full command line
+
+        Example:
+            >>> processes = sandbox.desktop.get_debug_processes()
+            >>> for proc in processes:
+            ...     print(f"{proc['pid']}: {proc['name']}")
+
+        Note:
+            Requires Agent v3.2.0+. GET /desktop/debug/processes endpoint.
+        """
+        self._check_availability()
+
+        response = self._client.get(
+            "/desktop/debug/processes",
+            operation="get desktop debug processes"
+        )
+
+        data = response.json()
+        return data.get("processes", [])
+
     def __repr__(self) -> str:
         status = "available" if self._available else "unknown" if not self._checked else "unavailable"
         return f"<Desktop status={status}>"

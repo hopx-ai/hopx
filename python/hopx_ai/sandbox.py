@@ -985,13 +985,56 @@ class Sandbox:
             end_at=expires_at,  # Map expires_at to end_at for backward compat
         )
     
+    def get_agent_info(self) -> Dict[str, Any]:
+        """
+        Get VM agent information.
+
+        Returns comprehensive information about the VM agent including version,
+        OS, architecture, available endpoints, and supported features.
+
+        Returns:
+            Dict with agent information:
+            - agent: Agent name (e.g., "hopx-vm-agent-desktop")
+            - agent_version: Agent version (e.g., "3.2.8")
+            - vm_id: VM identifier
+            - os: Operating system
+            - arch: Architecture (e.g., "amd64", "arm64")
+            - go_version: Go version used to build agent
+            - vm_ip: VM IP address
+            - vm_port: VM port
+            - start_time: Agent start timestamp
+            - uptime: Uptime in seconds
+            - endpoints: Map of available endpoints
+            - features: Available features dict
+
+        Example:
+            >>> info = sandbox.get_agent_info()
+            >>> print(f"Agent: {info['agent']} v{info['agent_version']}")
+            >>> print(f"OS: {info['os']} ({info['arch']})")
+            >>> print(f"Uptime: {info['uptime']}s")
+            >>> print(f"Features: {list(info['features'].keys())}")
+
+        Note:
+            Requires Agent v3.1.0+. GET /info endpoint.
+        """
+        self._ensure_agent_client()
+
+        logger.debug("Getting agent info")
+
+        response = self._agent_client.get(
+            "/info",
+            operation="get agent info"
+        )
+
+        return response.json()
+
     def get_agent_metrics(self) -> Dict[str, Any]:
         """
         Get real-time agent metrics.
-        
+
         Returns agent performance and health metrics including uptime,
         request counts, error counts, and performance statistics.
-        
+
         Returns:
             Dict with metrics including:
             - uptime_seconds: Agent uptime
@@ -999,27 +1042,95 @@ class Sandbox:
             - total_errors: Total errors count
             - requests_total: Per-endpoint request counts
             - avg_duration_ms: Average request duration by endpoint
-        
+
         Example:
             >>> metrics = sandbox.get_agent_metrics()
             >>> print(f"Uptime: {metrics['uptime_seconds']}s")
             >>> print(f"Total requests: {metrics.get('total_requests', 0)}")
             >>> print(f"Errors: {metrics.get('total_errors', 0)}")
-        
+
         Note:
-            Requires Agent v3.1.0+
+            Requires Agent v3.1.0+. GET /metrics/snapshot endpoint.
         """
         self._ensure_agent_client()
-        
+
         logger.debug("Getting agent metrics")
-        
+
         response = self._agent_client.get(
             "/metrics/snapshot",
             operation="get agent metrics"
         )
-        
+
         return response.json()
-    
+
+    def list_system_processes(self) -> List[Dict[str, Any]]:
+        """
+        List all running system processes in the sandbox.
+
+        Returns a list of all processes running in the VM, not just background
+        code executions. Useful for debugging and monitoring system state.
+
+        Returns:
+            List of dicts with process information:
+            - pid: Process ID
+            - name: Process name
+            - status: Process status
+            - cpu_percent: CPU usage percentage
+            - memory_mb: Memory usage in MB
+            - command: Full command line
+
+        Example:
+            >>> processes = sandbox.list_system_processes()
+            >>> for proc in processes:
+            ...     print(f"{proc['pid']}: {proc['name']} (CPU: {proc.get('cpu_percent', 0)}%)")
+
+        Note:
+            Requires Agent v3.2.0+. GET /processes endpoint.
+        """
+        self._ensure_agent_client()
+
+        logger.debug("Listing system processes")
+
+        response = self._agent_client.get(
+            "/processes",
+            operation="list system processes"
+        )
+
+        return response.json().get("processes", [])
+
+    def get_jupyter_sessions(self) -> List[Dict[str, Any]]:
+        """
+        Get Jupyter kernel session status.
+
+        Returns information about active Jupyter kernel sessions, useful for
+        debugging kernel state and managing long-running Python executions.
+
+        Returns:
+            List of active Jupyter sessions with:
+            - kernel_id: Kernel identifier
+            - execution_state: idle, busy, starting
+            - connections: Number of connections
+            - last_activity: Last activity timestamp
+
+        Example:
+            >>> sessions = sandbox.get_jupyter_sessions()
+            >>> for session in sessions:
+            ...     print(f"Kernel {session['kernel_id']}: {session['execution_state']}")
+
+        Note:
+            Requires Agent v3.2.0+ with Jupyter support. GET /jupyter/sessions endpoint.
+        """
+        self._ensure_agent_client()
+
+        logger.debug("Getting Jupyter sessions")
+
+        response = self._agent_client.get(
+            "/jupyter/sessions",
+            operation="get jupyter sessions"
+        )
+
+        return response.json().get("sessions", [])
+
     def run_code(
         self,
         code: str,
