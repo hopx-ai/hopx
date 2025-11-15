@@ -540,13 +540,15 @@ async def wait_for_template_active(
                     if response.ok:
                         data = await response.json()
                         status = data.get('status', 'unknown')
+                        is_active = data.get('is_active', False)
 
                         if status != last_status:
                             if options.on_log:
-                                options.on_log({'message': f'Template status: {status}'})
+                                options.on_log({'message': f'Template status: {status} (is_active: {is_active})'})
                             last_status = status
 
-                        if status == 'active':
+                        # CRITICAL: Check both status AND is_active flag
+                        if status == 'active' and is_active:
                             if options.on_log:
                                 options.on_log({'message': f'✅ Template active (ID: {template_id})'})
                             return
