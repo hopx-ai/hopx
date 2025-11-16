@@ -238,10 +238,18 @@ sandbox.files.delete("/app/temp.txt")
 # Run synchronously
 result = sandbox.commands.run("ls -la /app")
 print(result.stdout)
+print(f"Exit code: {result.exit_code}")
 
-# Run in background
-cmd_id = sandbox.commands.run_async("python long_task.py")
-result = sandbox.commands.get_result(cmd_id)
+# Run in background (returns immediately with process ID)
+result = sandbox.commands.run(
+    "python long_task.py",
+    background=True,
+    timeout=300  # 5 minutes
+)
+print(result.stdout)  # "Background process started: cmd_1234..."
+
+# Check process status
+processes = sandbox.list_system_processes()
 ```
 
 ### Environment Variables

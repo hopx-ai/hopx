@@ -55,7 +55,7 @@ class Commands:
     ) -> CommandResult:
         """
         Run shell command.
-        
+
         Args:
             command: Shell command to run
             timeout: Command timeout in seconds (default: 30)
@@ -63,29 +63,29 @@ class Commands:
             env: Optional environment variables for this command only.
                  Priority: Request env > Global env > Agent env
             working_dir: Working directory for command (default: /workspace)
-        
+
         Returns:
             CommandResult with stdout, stderr, exit_code
-        
+
         Raises:
             CommandExecutionError: If command execution fails
             TimeoutError: If command times out
-        
+
         Example:
             >>> # Simple command
             >>> result = sandbox.commands.run('ls -la')
             >>> print(result.stdout)
             >>> print(f"Exit code: {result.exit_code}")
-            >>> 
+            >>>
             >>> # With environment variables
             >>> result = sandbox.commands.run(
             ...     'echo $API_KEY',
             ...     env={"API_KEY": "sk-test-123"}
             ... )
-            >>> 
+            >>>
             >>> # With custom timeout
             >>> result = sandbox.commands.run('npm install', timeout=300)
-            >>> 
+            >>>
             >>> # Check success
             >>> if result.success:
             ...     print("Success!")
@@ -94,7 +94,7 @@ class Commands:
             ...     print(f"Error: {result.stderr}")
         """
         if background:
-            return self._run_background(command, env=env, working_dir=working_dir)
+            return self._run_background(command, timeout=timeout, env=env, working_dir=working_dir)
         
         logger.debug(f"Running command: {command[:50]}...")
         
@@ -129,29 +129,36 @@ class Commands:
     def _run_background(
         self,
         command: str,
+        timeout: int = 30,
         env: Optional[Dict[str, str]] = None,
         working_dir: str = "/workspace"
     ) -> CommandResult:
         """
         Run command in background.
-        
+
         Args:
             command: Shell command to run
+            timeout: Command timeout in seconds (default: 30)
             env: Optional environment variables
             working_dir: Working directory
-        
+
         Returns:
             CommandResult with process info
         """
         logger.debug(f"Running command in background: {command[:50]}...")
-        
-        # Build request payload
-        payload = {"command": command, "working_dir": working_dir}
-        
+
+        # Build request payload - wrap command in bash for proper shell execution
+        payload = {
+            "command": "bash",
+            "args": ["-c", command],
+            "timeout": timeout,
+            "working_dir": working_dir
+        }
+
         # Add optional environment variables
         if env:
             payload["env"] = env
-        
+
         response = self._client.post(
             "/commands/background",
             json=payload,
@@ -159,9 +166,9 @@ class Commands:
             context={"command": command},
             timeout=10
         )
-        
+
         data = response.json()
-        
+
         # Return a CommandResult indicating background execution
         return CommandResult(
             stdout=f"Background process started: {data.get('process_id', 'unknown')}",
