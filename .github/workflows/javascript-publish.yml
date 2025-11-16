@@ -123,13 +123,14 @@ jobs:
       - name: Verify package contents
         run: |
           echo "Package contents before publish:"
-          npm pack --dry-run
+          echo "Checking dist/ directory:"
+          ls -lh dist/
           echo ""
           echo "Package.json version:"
           grep '"version":' package.json
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
