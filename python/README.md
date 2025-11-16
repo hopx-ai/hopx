@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.9-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
 
 Official Python SDK for [Hopx.ai](https://hopx.ai) - Cloud sandboxes for AI agents and code execution.
 
@@ -282,6 +282,47 @@ value = sandbox.env.get("API_KEY")
 # Delete variable
 sandbox.env.delete("DEBUG")
 ```
+
+### Accessing Sandbox Services
+
+Hopx automatically exposes all ports from your sandbox, making it easy to access web apps, APIs, and other services running inside.
+
+```python
+# Create sandbox and run a web server
+sandbox = Sandbox.create(template="code-interpreter")
+
+# Start a simple HTTP server on port 8080
+sandbox.run_code_background("""
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'<h1>Hello from Hopx!</h1>')
+
+HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+""", language="python")
+
+# Get the preview URL for port 8080
+url = sandbox.get_preview_url(8080)
+print(f"Access your app at: {url}")
+# Output: https://8080-sandbox123.eu-1001.vms.hopx.dev/
+
+# Get the default agent URL (port 7777)
+agent = sandbox.agent_url
+print(f"Sandbox agent: {agent}")
+# Output: https://7777-sandbox123.eu-1001.vms.hopx.dev/
+
+# Access any port
+api_url = sandbox.get_preview_url(3000)  # Your API on port 3000
+websocket_url = sandbox.get_preview_url(5000)  # WebSocket server
+```
+
+The preview URLs follow the format: `https://{port}-{sandbox_id}.{region}.vms.hopx.dev/`
+
+See `examples/preview_url_basic.py` for a complete working example.
 
 ### Template Building
 

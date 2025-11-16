@@ -5,6 +5,95 @@ All notable changes to the Hopx Python SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-11-16
+
+### Added
+
+**Preview URL Access for Sandbox Services**
+
+Added methods to easily access services running inside sandboxes via public URLs. Hopx automatically exposes all ports from sandboxes, and this feature makes it simple to discover and access those URLs.
+
+**New Methods**:
+1. **`sandbox.get_preview_url(port: int = 7777) -> str`**
+   - Returns the public URL for accessing a service on the specified port
+   - Default port is 7777 (sandbox agent)
+   - Parses `public_host` from sandbox info to construct URLs for other ports
+   - Works with both `Sandbox` and `AsyncSandbox` classes
+
+2. **`sandbox.agent_url` (property)**
+   - Convenience property for the default sandbox agent URL (port 7777)
+   - Equivalent to calling `get_preview_url(7777)`
+   - Available on both sync and async classes
+
+**URL Format**:
+```
+https://{port}-{sandbox_id}.{region}.vms.hopx.dev/
+```
+
+**Example - Accessing a Web App**:
+```python
+from hopx_ai import Sandbox
+
+# Create sandbox and run web server
+sandbox = Sandbox.create(template="code-interpreter")
+sandbox.run_code_background("""
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'<h1>Hello from Hopx!</h1>')
+
+HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+""", language="python")
+
+# Get preview URL for port 8080
+url = sandbox.get_preview_url(8080)
+print(f"Access your app at: {url}")
+# Output: https://8080-sandbox123.eu-1001.vms.hopx.dev/
+
+# Get agent URL
+agent = sandbox.agent_url
+print(f"Sandbox agent: {agent}")
+# Output: https://7777-sandbox123.eu-1001.vms.hopx.dev/
+```
+
+**Use Cases**:
+- Deploying and accessing web applications
+- Testing APIs and webhooks
+- Accessing development servers (React, Vue, etc.)
+- Connecting to databases or services with web UIs
+- Real-time collaboration on code running in sandboxes
+
+**Implementation Details**:
+- Uses regex to parse `public_host` and extract sandbox ID and domain
+- Supports multiple URL formats (with/without port prefix)
+- Raises `HopxError` if URL format cannot be parsed
+- Works seamlessly with async/await in `AsyncSandbox`
+
+**Tested Examples** (all verified working):
+- `examples/preview_url_basic.py` - **NEW**: Basic usage example
+- `examples/preview_url_web_app.py` - **NEW**: Web app deployment example
+- `examples/preview_url_async.py` - **NEW**: Async usage example
+- `examples/test_preview_urls.py` - **NEW**: Comprehensive test suite
+
+**Test Coverage**:
+- Agent URL generation (port 7777)
+- Custom port URL generation
+- Multiple ports tested (3000, 5000, 8000, 9000)
+- URL format validation
+- Async/await support
+- Optional HTTP accessibility check
+
+**Files Modified**:
+- `hopx_ai/sandbox.py` - Added `get_preview_url()` method and `agent_url` property
+- `hopx_ai/async_sandbox.py` - Added async versions of both methods
+- `README.md` - Added "Accessing Sandbox Services" section with tested examples
+- `CLAUDE.md` - Added implementation details and testing policy
+- 4 new tested example files
+
 ## [0.2.9] - 2025-11-16
 
 ### Fixed

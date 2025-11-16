@@ -935,6 +935,99 @@ class Sandbox:
 
         # Parse response using shared utility function
         return _parse_sandbox_info_response(response)
+
+    def get_preview_url(self, port: int = 7777) -> str:
+        """
+        Get preview URL for accessing a service running on a specific port.
+
+        Hopx automatically exposes all ports from your sandbox. Use this method
+        to get the public URL for accessing a service running on any port.
+
+        Args:
+            port: Port number to access (default: 7777 for sandbox agent)
+
+        Returns:
+            Preview URL in format: https://{port}-{sandbox_id}.{region}.vms.hopx.dev/
+
+        Raises:
+            HopxError: If unable to determine preview URL from sandbox info
+
+        Example:
+            >>> # Create sandbox and run a web server
+            >>> sandbox = Sandbox.create(template="code-interpreter")
+            >>> sandbox.run_code_background('''
+            ... from http.server import HTTPServer, BaseHTTPRequestHandler
+            ...
+            ... class Handler(BaseHTTPRequestHandler):
+            ...     def do_GET(self):
+            ...         self.send_response(200)
+            ...         self.send_header('Content-type', 'text/html')
+            ...         self.end_headers()
+            ...         self.wfile.write(b'<h1>Hello World!</h1>')
+            ...
+            ... HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+            ... ''', language="python")
+            >>>
+            >>> # Get preview URL for the web server
+            >>> url = sandbox.get_preview_url(8080)
+            >>> print(f"Access your app at: {url}")
+            >>> # Output: https://8080-sandbox123.eu-1001.vms.hopx.dev/
+            >>>
+            >>> # Get agent URL (default port 7777)
+            >>> agent = sandbox.get_preview_url()
+            >>> print(f"Sandbox agent: {agent}")
+        """
+        info = self.get_info()
+        public_host = info.public_host
+
+        # Parse public_host to extract base domain
+        # Expected format: https://7777-sandbox123.eu-1001.vms.hopx.dev/
+        # or: https://sandbox123.vms.hopx.dev/
+
+        import re
+        from .errors import HopxError
+
+        # Remove protocol and trailing slash
+        host = public_host.replace('https://', '').replace('http://', '').rstrip('/')
+
+        # Pattern 1: {port}-{sandbox_id}.{region}.vms.hopx.dev
+        match = re.match(r'^(?:\d+-)?([^.]+)\.(.+\.vms\.hopx\.dev)$', host)
+        if match:
+            sandbox_part = match.group(1)
+            domain_part = match.group(2)
+            return f"https://{port}-{sandbox_part}.{domain_part}/"
+
+        # Pattern 2: {sandbox_id}.{region}.vms.hopx.dev (no port prefix)
+        match = re.match(r'^([^.]+)\.(.+\.vms\.hopx\.dev)$', host)
+        if match:
+            sandbox_part = match.group(1)
+            domain_part = match.group(2)
+            return f"https://{port}-{sandbox_part}.{domain_part}/"
+
+        # Fallback: couldn't parse, return best guess
+        logger.warning(f"Could not parse public_host format: {public_host}")
+        raise HopxError(
+            f"Unable to determine preview URL from public_host: {public_host}. "
+            "Please ensure sandbox is running and try again."
+        )
+
+    @property
+    def agent_url(self) -> str:
+        """
+        Get the sandbox agent URL (port 7777).
+
+        This is a convenience property that returns the preview URL for the
+        default sandbox agent running on port 7777.
+
+        Returns:
+            Agent URL (equivalent to get_preview_url(7777))
+
+        Example:
+            >>> sandbox = Sandbox.create(template="code-interpreter")
+            >>> print(f"Agent URL: {sandbox.agent_url}")
+            >>> # Output: https://7777-sandbox123.eu-1001.vms.hopx.dev/
+        """
+        return self.get_preview_url(7777)
     
     def get_agent_info(self) -> Dict[str, Any]:
         """
