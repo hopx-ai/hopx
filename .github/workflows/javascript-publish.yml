@@ -49,10 +49,17 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
 
-          # Update version in package.json
-          npm version "$VERSION" --no-git-tag-version
+          # Get current version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
 
-          echo "Updated package.json version to: $VERSION"
+          # Update version in package.json (skip if already set)
+          if [ "$VERSION" = "$CURRENT_VERSION" ]; then
+            echo "Version already set to $VERSION, skipping update"
+          else
+            npm version "$VERSION" --no-git-tag-version
+            echo "Updated package.json version to: $VERSION"
+          fi
+
           grep '"version":' package.json
 
       - name: Run type checking
