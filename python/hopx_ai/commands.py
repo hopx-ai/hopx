@@ -4,11 +4,12 @@ from typing import Optional, Dict
 import logging
 from .models import CommandResult
 from ._agent_client import AgentHTTPClient
+from ._base_commands import _CommandsBase
 
 logger = logging.getLogger(__name__)
 
 
-class Commands:
+class Commands(_CommandsBase):
     """
     Command execution resource.
     
@@ -95,19 +96,11 @@ class Commands:
         """
         if background:
             return self._run_background(command, timeout=timeout, env=env, working_dir=working_dir)
-        
-        logger.debug(f"Running command: {command[:50]}...")
-        
-        # Build request payload
-        payload = {
-            "command": command,
-            "timeout": timeout,
-            "working_dir": working_dir
-        }
-        
-        # Add optional environment variables
-        if env:
-            payload["env"] = env
+
+        self._log_command_start(command, background=False)
+
+        # Build request payload using base class
+        payload = self._build_run_payload(command, timeout, working_dir, env)
         
         response = self._client.post(
             "/commands/run",
@@ -145,19 +138,10 @@ class Commands:
         Returns:
             CommandResult with process info
         """
-        logger.debug(f"Running command in background: {command[:50]}...")
+        self._log_command_start(command, background=True)
 
-        # Build request payload - wrap command in bash for proper shell execution
-        payload = {
-            "command": "bash",
-            "args": ["-c", command],
-            "timeout": timeout,
-            "working_dir": working_dir
-        }
-
-        # Add optional environment variables
-        if env:
-            payload["env"] = env
+        # Build request payload using base class
+        payload = self._build_background_payload(command, timeout, working_dir, env)
 
         response = self._client.post(
             "/commands/background",

@@ -4,11 +4,12 @@ from typing import Optional, Dict, Any
 import logging
 from ._async_agent_client import AsyncAgentHTTPClient
 from .models import ExecutionResult
+from ._base_commands import _CommandsBase
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncCommands:
+class AsyncCommands(_CommandsBase):
     """Async command execution for sandboxes."""
     
     def __init__(self, sandbox):
@@ -46,16 +47,12 @@ class AsyncCommands:
         if background:
             return await self._run_background(command, timeout=timeout_seconds, env=env, working_dir=working_dir)
 
+        self._log_command_start(command, background=False)
+
         client = await self._get_client()
 
-        payload = {
-            "command": command,
-            "timeout": timeout_seconds,
-            "working_dir": working_dir
-        }
-
-        if env:
-            payload["env"] = env
+        # Build request payload using base class
+        payload = self._build_run_payload(command, timeout_seconds, working_dir, env)
 
         response = await client.post(
             "/commands/run",
@@ -92,21 +89,12 @@ class AsyncCommands:
         Returns:
             ExecutionResult with process info
         """
-        logger.debug(f"Running command in background: {command[:50]}...")
+        self._log_command_start(command, background=True)
 
         client = await self._get_client()
 
-        # Build request payload - wrap command in bash for proper shell execution
-        payload = {
-            "command": "bash",
-            "args": ["-c", command],
-            "timeout": timeout,
-            "working_dir": working_dir
-        }
-
-        # Add optional environment variables
-        if env:
-            payload["env"] = env
+        # Build request payload using base class
+        payload = self._build_background_payload(command, timeout, working_dir, env)
 
         response = await client.post(
             "/commands/background",

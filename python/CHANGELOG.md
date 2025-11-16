@@ -5,25 +5,49 @@ All notable changes to the Hopx Python SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.7] - 2025-11-16
+## [0.2.8] - 2025-11-16
 
 ### Fixed
 
-**Background Commands API**
-- Fixed critical bug where background commands failed with HTTP 500 "executable file not found in $PATH"
-- Commands now correctly wrapped in bash shell execution: `{"command": "bash", "args": ["-c", command]}`
-- Added missing `timeout` parameter to background command requests
-- Fixed both sync (`Commands`) and async (`AsyncCommands`) implementations
+**Commands API - Critical Shell Execution Bug**
+- Fixed critical bug affecting ALL command execution (sync, async, regular, background)
+- Commands now properly wrapped in bash for shell feature support: `{"command": "bash", "args": ["-c", command]}`
+- Fixes commands with pipes, redirects, variables, and other shell features
+- Resolves HTTP 500 "executable file not found" errors for background commands
+- Resolves empty stdout for regular commands that use shell features
+
+**Specific Fixes**:
+- `Commands.run()` (sync regular): Now uses bash wrapper
+- `Commands._run_background()` (sync background): Now uses bash wrapper + added `timeout` parameter
+- `AsyncCommands.run()` (async regular): Now uses bash wrapper
+- `AsyncCommands._run_background()` (async background): New method with bash wrapper
 
 ### Changed
-- `Commands._run_background()`: Now accepts `timeout` parameter (default: 30 seconds)
-- `Commands._run_background()`: Sends proper payload format with bash wrapper and args array
+
+**Architecture: Consolidated Commands Implementation**
+- Eliminated code duplication between sync and async Commands classes
+- Introduced base class pattern (`_CommandsBase`) for shared logic
+- Payload building logic now in single location (DRY principle)
+- All command execution endpoints now send: `{"command": "bash", "args": ["-c", user_command], ...}`
+- `Commands._run_background()`: Added `timeout` parameter (default: 30 seconds)
 - `AsyncCommands.run()`: Added `background` parameter to match sync API
-- `AsyncCommands._run_background()`: New method for async background execution
+
+**Technical Implementation**:
+- Created `hopx_ai/_base_commands.py` with shared payload building methods
+- `Commands` and `AsyncCommands` now inherit from `_CommandsBase`
+- Shared methods: `_build_run_payload()`, `_build_background_payload()`, `_log_command_start()`
+- Zero runtime overhead, full type safety maintained
+- Single source of truth for payload format (easier maintenance)
 
 ### Documentation
-- Updated README.md with correct background commands API usage
+- Updated README.md with correct command execution examples
+- Documented that background commands don't capture stdout/stderr (redirect to files required)
 - Fixed incorrect `run_async()` example (now uses `background=True` parameter)
+
+### Testing
+- Verified all 4 execution paths: sync regular, async regular, sync background, async background
+- Confirmed shell features work: pipes, redirects, variables, multi-line commands
+- Confirmed stdout is returned correctly for regular commands
 
 ## [0.2.6] - 2025-11-16
 
