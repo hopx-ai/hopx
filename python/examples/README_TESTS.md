@@ -1,6 +1,109 @@
-# Template Building Tests
+# Hopx Python SDK - Examples Documentation
 
-## Python SDK Test
+This directory contains comprehensive examples demonstrating all features of the Hopx Python SDK.
+
+## Recent Updates (2025-11-16)
+
+**Updated Examples**:
+- `agent_commands.py` - Removed non-existent callback parameters (on_stdout, on_stderr)
+- `template_build.py` - Fixed to use `AsyncSandbox.create()` instead of deprecated `create_vm()` API
+- `template_nodejs.py` - Fixed to use `AsyncSandbox.create()` instead of deprecated `create_vm()` API
+- `debug_logging.py` - Removed hardcoded API key, now uses HOPX_API_KEY env var
+- `lazy_iterator.py` - Removed hardcoded API key, now uses HOPX_API_KEY env var
+- `async_iterator.py` - Removed hardcoded API key, now uses HOPX_API_KEY env var
+
+**New Examples**:
+- `env_vars_example.py` - Comprehensive environment variables demonstration (NEW v0.3.0 feature)
+
+## Prerequisites
+
+```bash
+# Install the SDK in development mode
+pip install -e .
+
+# Or using uv (recommended)
+uv venv
+uv pip install -e .
+
+# Set your API key
+export HOPX_API_KEY="your_api_key_here"
+```
+
+## Running Examples
+
+All examples require the `HOPX_API_KEY` environment variable to be set:
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run any example
+python3 examples/quick_start.py
+python3 examples/env_vars_example.py
+python3 examples/agent_commands.py
+```
+
+## Example Categories
+
+### Basic Usage
+- `quick_start.py` - Simple sandbox creation and basic operations
+- `async_quick_start.py` - Async version of quick start
+- `context_manager.py` - Using context managers for automatic cleanup
+- `list_sandboxes.py` - Listing and filtering sandboxes
+
+### Code Execution
+- `agent_code_execution.py` - Comprehensive code execution examples (Python, JS, Bash)
+- `agent_complete_workflow.py` - End-to-end data science workflow
+
+### Environment Variables (NEW)
+- `env_vars_example.py` - Environment variable management
+  - Setting env vars during sandbox creation
+  - Updating env vars after creation
+  - Per-request env var overrides
+  - Environment variable precedence
+
+### Command Execution
+- `agent_commands.py` - Shell command execution examples
+  - Running commands synchronously
+  - Error handling
+  - Pipeline commands
+  - Multi-line scripts
+
+### File Operations
+- `agent_files.py` - File operations (read, write, upload, download, list)
+
+### Template Building
+- `template_build.py` - Custom Python template building
+- `template_nodejs.py` - Custom Node.js template with multiple instances
+- `template_build_with_logs.py` - Template building with log monitoring
+- `templates.py` - Browsing and using pre-built templates
+
+### Preview URLs (v0.3.0)
+- `preview_url_basic.py` - Basic preview URL usage
+- `preview_url_web_app.py` - Web app deployment example
+- `preview_url_async.py` - Async preview URL usage
+
+### Desktop Automation
+- `desktop_automation.py` - Mouse and keyboard control
+- `desktop_vnc.py` - VNC server management
+- `desktop_windows.py` - Window management
+- `desktop_screenshot_recording.py` - Screenshots and recording
+- `desktop_complete_workflow.py` - Complete desktop automation workflow
+
+### Advanced Features
+- `lazy_iterator.py` - Memory-efficient sandbox iteration
+- `async_iterator.py` - Async memory-efficient iteration
+- `debug_logging.py` - Enabling debug logging for API inspection
+- `rotate_api_keys.py` - Automatic API key rotation on rate limits
+- `lifecycle.py` - Sandbox lifecycle management (pause, resume, stop, start)
+
+### Tests
+- `test_template_building.py` - Comprehensive template building test suite
+- `test_preview_urls.py` - Preview URLs test suite
+
+## Template Building Tests
+
+### Python SDK Test
 
 The `test_template_building.py` script tests the complete template building flow for the Python SDK, matching all tests from `test-template-build.sh`.
 

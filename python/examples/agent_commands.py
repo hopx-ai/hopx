@@ -4,8 +4,8 @@ Example: Command Execution with Hopx Sandbox
 This example demonstrates command execution:
 - Running shell commands
 - Capturing stdout and stderr
-- Using callbacks for output
 - Checking exit codes
+- Error handling
 """
 
 from hopx_ai import Sandbox
@@ -67,13 +67,12 @@ def main():
                 print(f"   {name}: {result.stdout.strip()}")
         print()
         
-        # Command with streaming output (callbacks)
-        print("8. Running command with callbacks...")
+        # Command with multiple outputs
+        print("8. Running command with multiple outputs...")
         result = sandbox.commands.run(
-            'echo "Line 1" && echo "Line 2" && echo "Line 3"',
-            on_stdout=lambda data: print(f"   📤 {data.strip()}"),
-            on_stderr=lambda data: print(f"   ⚠️  {data.strip()}")
+            'echo "Line 1" && echo "Line 2" && echo "Line 3"'
         )
+        print(f"   📤 Output:\n{result.stdout}")
         print(f"✅ Execution time: {result.execution_time:.3f}s\n")
         
         # Pipeline command

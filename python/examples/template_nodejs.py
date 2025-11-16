@@ -7,13 +7,13 @@ Build a custom Node.js template with Express
 
 import os
 import asyncio
-from hopx_ai import Template, wait_for_port
-from hopx_ai.template import BuildOptions, CreateVMOptions
+from hopx_ai import Template, wait_for_port, AsyncSandbox
+from hopx_ai.template import BuildOptions
 
 
 async def main():
     print("🚀 Node.js Template Example\n")
-    
+
     template = (
         Template()
         .from_node_image("20")  # Uses ubuntu/node:20-22.04_edge (Debian-based)
@@ -25,7 +25,7 @@ async def main():
         .set_env("PORT", "3000")
         .set_start_cmd("node src/index.js", wait_for_port(3000, 60000))
     )
-    
+
     print("Building Node.js template...")
     result = await Template.build(
         template,
@@ -35,25 +35,26 @@ async def main():
             on_log=lambda log: print(f"[{log['level']}] {log['message']}"),
         ),
     )
-    
+
     print(f"✅ Template built: {result.template_id}")
-    
-    # Create multiple instances
-    print("\nCreating 3 VM instances...")
-    vms = await asyncio.gather(
-        result.create_vm(CreateVMOptions(alias="instance-1")),
-        result.create_vm(CreateVMOptions(alias="instance-2")),
-        result.create_vm(CreateVMOptions(alias="instance-3")),
+
+    # Create multiple sandbox instances
+    print("\nCreating 3 sandbox instances...")
+    sandboxes = await asyncio.gather(
+        AsyncSandbox.create(template="nodejs-express-app", env_vars={"INSTANCE": "1"}),
+        AsyncSandbox.create(template="nodejs-express-app", env_vars={"INSTANCE": "2"}),
+        AsyncSandbox.create(template="nodejs-express-app", env_vars={"INSTANCE": "3"}),
     )
-    
-    print("\n✅ VMs created:")
-    for vm in vms:
-        print(f"   - {vm.vm_id}: {vm.ip}")
-    
+
+    print("\n✅ Sandboxes created:")
+    for i, sandbox in enumerate(sandboxes, 1):
+        info = await sandbox.get_info()
+        print(f"   - Instance {i}: {sandbox.sandbox_id} (Status: {info.status})")
+
     # Cleanup
     print("\nCleaning up...")
-    await asyncio.gather(*[vm.delete() for vm in vms])
-    print("✅ All VMs deleted")
+    await asyncio.gather(*[sandbox.kill() for sandbox in sandboxes])
+    print("✅ All sandboxes destroyed")
 
 
 if __name__ == "__main__":

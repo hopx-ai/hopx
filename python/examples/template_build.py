@@ -51,39 +51,40 @@ async def main():
     print(f"   Build ID: {result.build_id}")
     print(f"   Duration: {result.duration}ms")
     
-    # 3. Create VM from template
-    print("\n3. Creating VM from template...")
-    
-    from hopx_ai.template import CreateVMOptions
-    
-    vm = await result.create_vm(
-        CreateVMOptions(
-            alias="instance-1",
-            env_vars={
-                "DATABASE_URL": "postgresql://localhost/mydb",
-                "API_KEY": "secret123",
-            },
-        )
+    # 3. Create sandbox from template
+    print("\n3. Creating sandbox from template...")
+
+    from hopx_ai import AsyncSandbox
+
+    sandbox = await AsyncSandbox.create(
+        template="my-python-app",  # Use template name/alias
+        env_vars={
+            "DATABASE_URL": "postgresql://localhost/mydb",
+            "API_KEY": "secret123",
+        },
     )
-    
-    print("   ✅ VM created!")
-    print(f"   VM ID: {vm.vm_id}")
-    print(f"   IP: {vm.ip}")
-    print(f"   Agent URL: {vm.agent_url}")
-    
-    # 4. Use the VM
-    print("\n4. Testing VM...")
-    import aiohttp
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{vm.agent_url}/health") as response:
-            health = await response.json()
-            print(f"   Health status: {health}")
-    
+
+    print("   ✅ Sandbox created!")
+    print(f"   Sandbox ID: {sandbox.sandbox_id}")
+    info = await sandbox.get_info()
+    print(f"   Status: {info.status}")
+    print(f"   Agent URL: {await sandbox.agent_url}")
+
+    # 4. Use the sandbox
+    print("\n4. Testing sandbox...")
+    result = await sandbox.run_code("""
+import os
+print(f"DATABASE_URL: {os.environ.get('DATABASE_URL')}")
+print(f"API_KEY: {'*' * len(os.environ.get('API_KEY', ''))}")
+print("Web app is running on port 8000!")
+""", language="python")
+
+    print(f"   Output:\n{result.stdout}")
+
     # 5. Cleanup
     print("\n5. Cleaning up...")
-    await vm.delete()
-    print("   ✅ VM deleted")
+    await sandbox.kill()
+    print("   ✅ Sandbox destroyed")
     
     print("\n✨ Done!")
 
