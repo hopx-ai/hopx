@@ -45,41 +45,41 @@ def create_with_rotation(template="code-interpreter", tier="tier1"):
 
     for i, api_key in enumerate(keys):
         try:
-            print(f"🔄 Trying key {i+1}/{len(keys)} ({tier})...")
+            print(f"Trying key {i+1}/{len(keys)} ({tier})...")
             sandbox = Sandbox.create(
                 template=template,
                 api_key=api_key
             )
-            print(f"✅ Success! Created: {sandbox.sandbox_id}")
+            print(f"Created: {sandbox.sandbox_id}")
             return sandbox
 
         except ResourceLimitExceededError:
-            print(f"⚠️  Limit hit on key {i+1}, rotating to next...")
+            print(f"Limit hit on key {i+1}, rotating to next...")
             if i == len(keys) - 1:
-                print(f"❌ All {tier} keys exhausted!")
-                
+                print(f"All {tier} keys exhausted")
+
                 # Try next tier
                 if tier == "tier1":
-                    print("🔄 Switching to Tier 2 (100 VMs/org)...")
+                    print("Switching to Tier 2 (100 VMs/org)...")
                     return create_with_rotation(template, "tier2")
                 elif tier == "tier2":
-                    print("🔄 Switching to Tier 3 (500 VMs/org)...")
+                    print("Switching to Tier 3 (500 VMs/org)...")
                     return create_with_rotation(template, "tier3")
                 else:
-                    print("❌ ALL TIERS EXHAUSTED!")
+                    print("ALL TIERS EXHAUSTED")
                     return None
             continue
-    
+
     return None
 
 
 def main():
     """Example usage"""
-    print("╔══════════════════════════════════════════════════╗")
-    print("║   🔄 AUTOMATIC API KEY ROTATION DEMO 🔄        ║")
-    print("╚══════════════════════════════════════════════════╝")
+    print("=" * 60)
+    print("Automatic API Key Rotation Example")
+    print("=" * 60)
     print()
-    
+
     # Create 5 sandboxes with automatic rotation
     sandboxes = []
     for i in range(5):
@@ -88,19 +88,19 @@ def main():
         if sandbox:
             sandboxes.append(sandbox)
         else:
-            print("Failed to create sandbox!")
+            print("Failed to create sandbox")
             break
-    
-    print(f"\n✅ Successfully created {len(sandboxes)} sandboxes!")
-    
+
+    print(f"\nCreated {len(sandboxes)} sandboxes")
+
     # Clean up
-    print("\n🧹 Cleaning up...")
+    print("\nCleaning up...")
     for sandbox in sandboxes:
         try:
             sandbox.kill()
-            print(f"   ✅ Deleted: {sandbox.sandbox_id}")
+            print(f"   Deleted: {sandbox.sandbox_id}")
         except Exception as e:
-            print(f"   ❌ Failed to delete: {e}")
+            print(f"   Failed to delete: {e}")
 
 
 if __name__ == "__main__":

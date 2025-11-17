@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-List and manage existing sandboxes.
+List and Manage Sandboxes
 
-Shows how to list, filter, and reconnect to sandboxes.
+List, filter, and reconnect to sandboxes.
 """
 
 from hopx_ai import Sandbox
 
-print("📋 List Sandboxes Example\n")
+print("List Sandboxes\n")
 
 # 1. List all sandboxes
 print("1. All sandboxes:")
@@ -34,5 +34,5 @@ if all_sandboxes:
     print(f"   Status: {info.status}")
     print(f"   URL: {info.public_host}")
 
-print("\n✨ Done!")
+print("\nDone")
 

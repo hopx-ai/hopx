@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Sync lazy iterator example.
+Lazy Iterator
 
-Shows the difference between .list() and .iter()
+Difference between .list() and .iter()
 
 Note: Set HOPX_API_KEY environment variable before running.
 """
@@ -10,7 +10,7 @@ Note: Set HOPX_API_KEY environment variable before running.
 import os
 from hopx_ai import Sandbox
 
-print("📊 Iterator vs List Comparison\n")
+print("Iterator vs List Comparison\n")
 
 # Method 1: .list() - loads ALL into memory
 print("1. Using .list() (loads all into memory):")
@@ -29,8 +29,8 @@ for sandbox in Sandbox.iter():
     count += 1
 
     if count >= 3:  # Stop early
-        print("   (stopping early - remaining pages not fetched!)")
+        print("   (stopping early - remaining pages not fetched)")
         break
 
-print("\n✅ With .iter(), you can break early and save API calls!")
+print("\nWith .iter(), you can break early and save API calls")
 

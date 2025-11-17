@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-HOPX Python SDK - Template Building Flow Test
-Tests the complete template building flow matching test-template-build.sh
+Template Building Flow Test
+
+Comprehensive test of the template building API covering all features,
+validation errors, and edge cases.
 """
 
 import os

@@ -1,19 +1,21 @@
 """
-Example: Complete Agent Workflow
+Complete Agent Workflow
 
-This example demonstrates a complete data science workflow using all agent features:
-- File operations
-- Code execution with rich output
-- Command execution
-- Combining lifecycle + agent operations
+Automate a complete data science workflow:
+- Upload datasets
+- Install packages
+- Analyze data
+- Generate visualizations
+- Create reports
+- Download results
 """
 
 from hopx_ai import Sandbox
 
 def main():
-    print("🚀 Complete Agent Workflow Example")
+    print("Complete Agent Workflow")
     print("=" * 60)
-    print("This example demonstrates a complete data science workflow:\n")
+    print("Running data science workflow:\n")
     
     # Create sandbox with context manager (auto-cleanup)
     with Sandbox.create(template="code-interpreter") as sandbox:
@@ -24,7 +26,7 @@ def main():
         print(f"   Resources: {info.resources.vcpu if info.resources else '?'} vCPU\n")
         
         # Step 1: Upload dataset
-        print("📤 Step 1: Preparing dataset...")
+        print("Step 1: Preparing dataset...")
         dataset = """date,temperature,humidity,rainfall
 2024-01-01,22.5,65,0
 2024-01-02,24.0,70,5
@@ -35,18 +37,18 @@ def main():
 2024-01-07,24.5,58,3"""
         
         sandbox.files.write('/workspace/weather.csv', dataset)
-        print("✅ Dataset uploaded to /workspace/weather.csv\n")
-        
+        print("Dataset uploaded to /workspace/weather.csv\n")
+
         # Step 2: Install required packages
-        print("📦 Step 2: Installing packages...")
+        print("Step 2: Installing packages...")
         result = sandbox.commands.run('pip3 install pandas matplotlib seaborn --quiet', timeout=60)
         if result.success:
-            print("✅ Packages installed\n")
+            print("Packages installed\n")
         else:
-            print(f"⚠️  Warning: {result.stderr[:100]}\n")
-        
+            print(f"Warning: {result.stderr[:100]}\n")
+
         # Step 3: Data analysis
-        print("📊 Step 3: Running data analysis...")
+        print("Step 3: Running data analysis...")
         analysis_code = """
 import pandas as pd
 import matplotlib
@@ -78,9 +80,9 @@ print(f"Days with rain: {(df['rainfall'] > 0).sum()}")
         
         result = sandbox.run_code(analysis_code)
         print(result.stdout)
-        
+
         # Step 4: Create visualizations
-        print("📈 Step 4: Generating visualizations...")
+        print("Step 4: Generating visualizations...")
         viz_code = """
 import pandas as pd
 import matplotlib
@@ -126,15 +128,15 @@ axes[1, 1].set_title('Correlation Matrix')
 
 plt.tight_layout()
 plt.savefig('/workspace/weather_analysis.png', dpi=150, bbox_inches='tight')
-print("✅ Visualization saved!")
+print("Visualization saved")
 """
-        
+
         result = sandbox.run_code(viz_code)
         print(result.stdout)
         print(f"   Rich outputs captured: {result.rich_count}\n")
-        
+
         # Step 5: Generate report
-        print("📝 Step 5: Generating report...")
+        print("Step 5: Generating report...")
         report_code = """
 import pandas as pd
 
@@ -175,47 +177,47 @@ print(report)
         
         result = sandbox.run_code(report_code)
         print(result.stdout)
-        
+
         # Step 6: List all generated files
-        print("📂 Step 6: Listing generated files...")
+        print("Step 6: Listing generated files...")
         files = sandbox.files.list('/workspace')
-        print(f"✅ Found {len(files)} files:")
+        print(f"Found {len(files)} files:")
         for f in files:
             if f.is_file:
                 print(f"   📄 {f.name} ({f.size_kb:.2f} KB)")
         print()
         
         # Step 7: Download results
-        print("💾 Step 7: Downloading results...")
+        print("Step 7: Downloading results...")
         downloads = [
             ('/workspace/weather_analysis.png', '/tmp/weather_analysis.png'),
             ('/workspace/report.txt', '/tmp/weather_report.txt'),
         ]
-        
+
         for remote, local in downloads:
             try:
                 sandbox.files.download(remote, local)
-                print(f"✅ Downloaded: {remote} -> {local}")
+                print(f"Downloaded: {remote} -> {local}")
             except Exception as e:
-                print(f"⚠️  Failed to download {remote}: {e}")
+                print(f"Failed to download {remote}: {e}")
         print()
-        
+
         # Step 8: Final verification
-        print("🔍 Step 8: Verification...")
+        print("Step 8: Verification...")
         result = sandbox.commands.run('ls -lh /workspace')
         print("Final workspace contents:")
         print(result.stdout)
-        
+
         print("\n" + "=" * 60)
-        print("✅ Complete workflow finished successfully!")
+        print("Workflow complete")
         print("=" * 60)
         print("\nGenerated files:")
         print("  - /tmp/weather_analysis.png (visualization)")
         print("  - /tmp/weather_report.txt (analysis report)")
-        print("\nYou can now view these files on your local system.")
-    
+        print("\nView these files on your local system.")
+
     # Context manager automatically calls sandbox.kill()
-    print("\n🧹 Sandbox automatically cleaned up!")
+    print("\nSandbox cleaned up")
 
 
 if __name__ == "__main__":

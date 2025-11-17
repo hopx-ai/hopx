@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Environment Variables Example
+Environment Variables
 
-Demonstrates environment variable management:
-- Setting env vars during sandbox creation
-- Setting/updating env vars after creation
-- Getting individual and all env vars
+Manage environment variables in sandboxes:
+- Set env vars during sandbox creation
+- Set/update env vars after creation
+- Get individual and all env vars
 - Per-request env var overrides
 - Environment variable precedence
 """
@@ -14,7 +14,7 @@ from hopx_ai import Sandbox
 
 
 def main():
-    print("🚀 Environment Variables Example\n")
+    print("Environment Variables\n")
 
     # 1. Create sandbox with environment variables
     print("1. Creating sandbox with environment variables...")
@@ -27,7 +27,7 @@ def main():
             "MAX_RETRIES": "3",
         },
     )
-    print(f"✅ Sandbox created: {sandbox.sandbox_id}\n")
+    print(f"Sandbox created: {sandbox.sandbox_id}\n")
 
     try:
         # 2. Verify env vars are available in code execution
@@ -59,7 +59,7 @@ print(f"MAX_RETRIES: {os.environ.get('MAX_RETRIES')}")
                 "CACHE_ENABLED": "true",  # Add new
             }
         )
-        print("   ✅ Environment variables updated\n")
+        print("   Environment variables updated\n")
 
         # 5. Verify updates
         print("5. Verifying updates...")
@@ -149,9 +149,9 @@ print(f"CUSTOM_VAR (request only): {os.environ.get('CUSTOM_VAR')}")
         )
         print(f"   Command output: {result.stdout.strip()}\n")
 
-        print("✅ All environment variable operations completed successfully!")
+        print("Environment variable operations complete")
 
-        print("\n📝 Environment Variable Precedence (highest to lowest):")
+        print("\nEnvironment Variable Precedence (highest to lowest):")
         print("   1. Request-specific env (via run_code(..., env={...}))")
         print("   2. Sandbox-level env (via sandbox.env.set/update)")
         print("   3. Creation-time env (via Sandbox.create(env_vars={...}))")
@@ -159,9 +159,9 @@ print(f"CUSTOM_VAR (request only): {os.environ.get('CUSTOM_VAR')}")
 
     finally:
         # Cleanup
-        print("\n🧹 Cleaning up...")
+        print("\nCleaning up...")
         sandbox.kill()
-        print("✅ Sandbox destroyed")
+        print("Sandbox destroyed")
 
 
 if __name__ == "__main__":

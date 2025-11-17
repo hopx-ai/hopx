@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Sandbox lifecycle management example.
+Sandbox Lifecycle Management
 
-Demonstrates: create, pause, resume, kill
+Create, pause, resume, kill sandboxes.
 """
 
 from hopx_ai import Sandbox
 import time
 
-print("🔄 Sandbox Lifecycle Demo\n")
+print("Sandbox Lifecycle\n")
 
 # 1. Create sandbox
 print("1. Creating sandbox...")
@@ -16,7 +16,7 @@ sandbox = Sandbox.create(
     template="code-interpreter",
     timeout_seconds=600  # 10 minutes auto-kill timeout
 )
-print(f"   ✅ Created: {sandbox.sandbox_id}")
+print(f"   Created: {sandbox.sandbox_id}")
 info = sandbox.get_info()
 print(f"   URL: {info.public_host}")
 if info.resources:
@@ -29,17 +29,17 @@ print(f"\n2. Status: {info.status}")
 # 3. Pause sandbox
 print("\n3. Pausing sandbox...")
 sandbox.pause()
-print("   ✅ Paused")
+print("   Paused")
 
 # 4. Resume sandbox
 print("\n4. Resuming sandbox...")
 sandbox.resume()
-print("   ✅ Resumed")
+print("   Resumed")
 
 # 5. Destroy sandbox
 print("\n5. Destroying sandbox...")
 sandbox.kill()
-print("   ✅ Destroyed")
+print("   Destroyed")
 
-print("\n✨ Lifecycle demo complete!")
+print("\nLifecycle complete")
 

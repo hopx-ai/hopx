@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Debug logging example.
+Debug Logging
 
-Shows how to enable detailed logging to see API requests.
+Enable detailed logging to see API requests.
 
 Note: Set HOPX_API_KEY environment variable before running.
 """
@@ -17,24 +17,23 @@ logging.basicConfig(
     format='%(levelname)s:%(name)s:%(message)s'
 )
 
-print("🔍 Debug Logging Example\n")
+print("Debug Logging\n")
 print("Watch the DEBUG logs below to see API calls:\n")
 
-# Create sandbox - you'll see detailed logs!
-# API key is read from HOPX_API_KEY environment variable
+# Create sandbox
 sandbox = Sandbox.create(template="code-interpreter")
 
-print(f"\n✅ Created: {sandbox.sandbox_id}")
+print(f"\nCreated: {sandbox.sandbox_id}")
 
-# Get info - more logs!
+# Get info
 info = sandbox.get_info()
-print(f"📊 Status: {info.status}")
+print(f"Status: {info.status}")
 
-# Delete - final logs!
+# Delete
 sandbox.kill()
-print("\n✅ Deleted!")
+print("\nDeleted")
 
-print("\n💡 Debug logs show:")
+print("\nDebug logs show:")
 print("   - HTTP method and URL")
 print("   - Request body")
 print("   - Response status and timing")

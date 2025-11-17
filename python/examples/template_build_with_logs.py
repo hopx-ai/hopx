@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Template Building with Log Monitoring Example
+Template Building with Log Monitoring
 
-Shows how to build a template and monitor its logs using the new get_logs() method.
+Build a template and monitor logs using the get_logs() method.
 """
 
 import os
@@ -12,8 +12,8 @@ from hopx_ai.template import BuildOptions
 
 
 async def main():
-    print("🚀 Building Template with Log Monitoring\n")
-    
+    print("Building Template with Log Monitoring\n")
+
     # 1. Define template
     template = (
         Template()
@@ -22,8 +22,8 @@ async def main():
         .run_cmd("pip install flask gunicorn")
         .set_workdir("/app")
     )
-    
-    # 2. Start building (without log callbacks for cleaner output)
+
+    # 2. Start building
     print("Starting build...")
     result = await Template.build(
         template,
@@ -36,14 +36,14 @@ async def main():
             disk_gb=10,
         )
     )
-    
-    print(f"✅ Build started!")
+
+    print(f"Build started")
     print(f"   Template ID: {result.template_id}")
     print(f"   Build ID: {result.build_id}")
     print()
-    
-    # 3. Monitor logs using the new get_logs() method
-    print("📋 Monitoring build logs...\n")
+
+    # 3. Monitor logs using the get_logs() method
+    print("Monitoring build logs...\n")
     
     offset = 0
     while True:
@@ -59,15 +59,15 @@ async def main():
         
         # Check if build is complete
         if logs_response.complete:
-            print("\n✅ Build complete!")
+            print("\nBuild complete")
             print(f"   Status: {logs_response.status}")
             break
-        
+
         # Wait before polling again
         await asyncio.sleep(2)
-    
+
     print()
-    print(f"🎉 Template ready to use: {result.template_id}")
+    print(f"Template ready: {result.template_id}")
     print(f"   Build duration: {result.duration}ms")
 
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Async lazy iterator example.
+Async Lazy Iterator
 
-Shows how to use async iterators for better memory usage.
+Use async iterators for better memory usage.
 
 Note: Set HOPX_API_KEY environment variable before running.
 """
@@ -13,13 +13,13 @@ from hopx_ai import AsyncSandbox
 
 
 async def main():
-    print("🔄 Async Iterator Demo\n")
+    print("Async Iterator\n")
 
     # Create a few sandboxes first
     print("Creating 3 sandboxes...")
     for i in range(3):
         sandbox = await AsyncSandbox.create(template="code-interpreter")
-        print(f"   ✅ Created: {sandbox.sandbox_id}")
+        print(f"   Created: {sandbox.sandbox_id}")
 
     # Now iterate lazily (fetches pages as needed)
     print("\nIterating over sandboxes (lazy loading)...")
@@ -29,11 +29,11 @@ async def main():
         print(f"   • {sandbox.sandbox_id}: {info.status}")
         count += 1
 
-        if count >= 5:  # Stop after 5 - doesn't fetch all pages!
+        if count >= 5:  # Stop after 5
             print("   (stopping early - remaining pages not fetched)")
             break
 
-    print("\n✨ Done!")
+    print("\nDone")
 
 
 if __name__ == "__main__":

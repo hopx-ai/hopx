@@ -13,7 +13,7 @@ from hopx_ai.template import BuildOptions
 
 
 async def main():
-    print("🚀 Node.js Template Example\n")
+    print("Node.js Template Example\n")
 
     # Generate unique template name
     template_name = f"nodejs-express-{int(time.time())}"
@@ -59,7 +59,7 @@ EOF""")
     )
 
     print("Building Node.js template...")
-    print("Note: This may take 5-10 minutes...\n")
+    print("Note: Takes 5-10 minutes\n")
 
     result = await Template.build(
         template,
@@ -70,7 +70,7 @@ EOF""")
         ),
     )
 
-    print(f"✅ Template built: {result.template_id}")
+    print(f"Template built: {result.template_id}")
 
     # Create multiple sandbox instances
     print("\nCreating 3 sandbox instances...")
@@ -80,7 +80,7 @@ EOF""")
         AsyncSandbox.create(template=template_name, env_vars={"INSTANCE": "3"}),
     )
 
-    print("\n✅ Sandboxes created:")
+    print("\nSandboxes created:")
     for i, sandbox in enumerate(sandboxes, 1):
         info = await sandbox.get_info()
         print(f"   - Instance {i}: {sandbox.sandbox_id} (Status: {info.status})")
@@ -88,7 +88,7 @@ EOF""")
     # Cleanup
     print("\nCleaning up...")
     await asyncio.gather(*[sandbox.kill() for sandbox in sandboxes])
-    print("✅ All sandboxes destroyed")
+    print("All sandboxes destroyed")
 
 
 if __name__ == "__main__":

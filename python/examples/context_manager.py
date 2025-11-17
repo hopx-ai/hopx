@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Context manager example - auto cleanup.
+Context Manager
 
-The sandbox is automatically destroyed when exiting the 'with' block.
+Auto cleanup - sandbox is automatically destroyed when exiting the 'with' block.
 """
 
 from hopx_ai import Sandbox
 
-print("🔧 Context Manager Example\n")
+print("Context Manager\n")
 
 # Sandbox will be automatically destroyed after the block
 with Sandbox.create(template="code-interpreter") as sandbox:
@@ -18,7 +18,7 @@ with Sandbox.create(template="code-interpreter") as sandbox:
     
     # Use sandbox here...
     print("\nDoing work in sandbox...")
-    
+
 # Sandbox is automatically killed here
-print("\n✅ Sandbox automatically cleaned up!")
+print("\nSandbox automatically cleaned up")
 

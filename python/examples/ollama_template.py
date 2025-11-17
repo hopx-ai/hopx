@@ -2,18 +2,17 @@
 """
 Ollama Template Example
 
-Demonstrates building a custom template with Ollama installed,
-then creating and reusing a sandbox from that template.
+Build a custom template with Ollama and a small language model.
 
-This example:
-1. Builds a template with Python 3.13 and Ollama
-2. Pulls a small language model (smollm)
-3. Creates a sandbox from the template
-4. Saves the sandbox ID for reuse
-5. Runs commands in the sandbox
+Steps:
+1. Build template with Python 3.13 and Ollama
+2. Pull smollm language model
+3. Create sandbox from template
+4. Save sandbox ID for reuse
+5. Run commands in sandbox
 
-Note: Template building takes ~5-10 minutes on first run.
-Subsequent runs reuse the saved sandbox (instant).
+Template building takes 5-10 minutes on first run.
+Subsequent runs reuse the saved sandbox.
 """
 
 import os
@@ -33,11 +32,12 @@ def create_ollama_template() -> Template:
     """
     Create a template with Ollama installed.
 
-    Sets up a Python environment with Ollama for running local LLMs:
-    - Creates workspace directory structure
-    - Installs Ollama from official source
-    - Pulls a small language model (smollm)
-    - Configures environment for optimal operation
+    Returns a template configured with:
+    - Python 3.13 base image
+    - Workspace directory
+    - Ollama installation
+    - smollm language model
+    - Environment variables for operation
     """
     return (
         Template()
@@ -84,7 +84,7 @@ def create_build_options(api_key: str) -> BuildOptions:
 
 async def build_ollama_template_and_create_sandbox(api_key: str) -> Sandbox:
     """Build the Ollama template and create a sandbox from it."""
-    print("🔨 Building Ollama template (this takes ~5-10 minutes)...")
+    print("Building Ollama template (takes 5-10 minutes)...")
     print(f"   Template name: {HOPX_TEMPLATE_NAME}")
     print()
 
@@ -95,14 +95,14 @@ async def build_ollama_template_and_create_sandbox(api_key: str) -> Sandbox:
     result: BuildResult = await Template.build(template, build_options)
 
     print()
-    print(f"✅ Template built successfully!")
+    print(f"Template built")
     print(f"   Template ID: {result.template_id}")
     print(f"   Build ID: {result.build_id}")
     print(f"   Duration: {result.duration}ms")
     print()
 
     # Create sandbox from the template
-    print("🚀 Creating sandbox from template...")
+    print("Creating sandbox from template...")
     sandbox = Sandbox.create(
         template=HOPX_TEMPLATE_NAME,
         api_key=api_key
@@ -112,7 +112,7 @@ async def build_ollama_template_and_create_sandbox(api_key: str) -> Sandbox:
     with open(SANDBOX_ID_FILE, "w") as f:
         f.write(sandbox.sandbox_id)
 
-    print(f"✅ Sandbox created: {sandbox.sandbox_id}")
+    print(f"Sandbox created: {sandbox.sandbox_id}")
     print(f"   Saved ID to: {SANDBOX_ID_FILE}")
     print()
 
@@ -123,10 +123,8 @@ async def get_or_create_sandbox() -> Sandbox:
     """
     Get existing sandbox or create new one.
 
-    This demonstrates:
-    - Template building (only on first run)
-    - Sandbox reuse (subsequent runs)
-    - Persistent sandbox IDs
+    Returns existing sandbox if ID file exists, otherwise builds new template
+    and creates sandbox. Saves sandbox ID for future reuse.
     """
     api_key = os.environ.get("HOPX_API_KEY", "")
     if not api_key:
@@ -137,21 +135,21 @@ async def get_or_create_sandbox() -> Sandbox:
         with open(SANDBOX_ID_FILE, "r") as f:
             sandbox_id = f.read().strip()
 
-        print(f"📦 Found existing sandbox ID: {sandbox_id}")
+        print(f"Found existing sandbox ID: {sandbox_id}")
         print("   Connecting to existing sandbox...")
 
         try:
             sandbox = Sandbox.connect(sandbox_id, api_key=api_key)
             info = sandbox.get_info()
-            print(f"✅ Connected to sandbox: {sandbox.sandbox_id}")
+            print(f"Connected to sandbox: {sandbox.sandbox_id}")
             print(f"   Status: {info.status}")
             return sandbox
         except Exception as e:
-            print(f"⚠️  Failed to connect: {e}")
+            print(f"Failed to connect: {e}")
             print("   Building new sandbox...")
 
     # No saved sandbox or connection failed - build new one
-    print("🆕 No existing sandbox found")
+    print("No existing sandbox found")
     return await build_ollama_template_and_create_sandbox(api_key)
 
 
@@ -166,38 +164,38 @@ async def main():
     start_time = time.time()
     sandbox = await get_or_create_sandbox()
     duration = time.time() - start_time
-    print(f"⏱️  Sandbox ready in {duration:.2f} seconds")
+    print(f"Sandbox ready in {duration:.2f} seconds")
     print()
 
     # Test 1: Simple command
-    print("🧪 Test 1: Running simple command...")
+    print("Step 1: Running simple command...")
     result = sandbox.commands.run("uname -a", timeout=30)
     print(f"   Output: {result.stdout.strip()}")
-    print(f"   ✅ Test 1 passed")
+    print(f"   Test 1 passed")
     print()
 
     # Test 2: Check Ollama installation
-    print("🧪 Test 2: Verifying Ollama installation...")
+    print("Step 2: Verifying Ollama installation...")
     result = sandbox.commands.run("/usr/local/bin/ollama --version", timeout=30)
     print(f"   {result.stdout.strip()}")
-    print(f"   ✅ Test 2 passed")
+    print(f"   Test 2 passed")
     print()
 
     # Test 3: List available models
-    print("🧪 Test 3: Listing Ollama models...")
+    print("Step 3: Listing Ollama models...")
     result = sandbox.commands.run("/usr/local/bin/ollama list", timeout=30)
     print(f"   Available models:")
     for line in result.stdout.strip().split('\n'):
         if line.strip():
             print(f"      {line}")
-    print(f"   ✅ Test 3 passed")
+    print(f"   Test 3 passed")
     print()
 
     # Test 4: Run Ollama model
-    print(f"🧪 Test 4: Running Ollama model '{OLLAMA_MODEL}'...")
+    print(f"Step 4: Running Ollama model '{OLLAMA_MODEL}'...")
     prompt = "Say hello to the HopX AI team in one sentence!"
     print(f"   Prompt: {prompt}")
-    print(f"   Running (this may take 30-60 seconds)...")
+    print(f"   Running (takes 30-60 seconds)...")
 
     start_time = time.time()
     result = sandbox.commands.run(
@@ -208,16 +206,16 @@ async def main():
 
     print(f"   Response ({duration:.1f}s):")
     print(f"   {result.stdout.strip()}")
-    print(f"   ✅ Test 4 passed")
+    print(f"   Test 4 passed")
     print()
 
     print("=" * 70)
-    print("✅ All tests completed successfully!")
+    print("All tests completed")
     print("=" * 70)
     print()
-    print("💡 Tips:")
+    print("Tips:")
     print(f"   - Sandbox ID saved to: {SANDBOX_ID_FILE}")
-    print(f"   - Rerun this script to reuse the same sandbox (instant)")
+    print(f"   - Rerun this script to reuse the same sandbox")
     print(f"   - Delete {SANDBOX_ID_FILE} to build a new template")
     print(f"   - Run: sandbox.kill() to destroy the sandbox")
 

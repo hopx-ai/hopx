@@ -12,7 +12,7 @@ from hopx_ai import Template, wait_for_port
 
 
 async def main():
-    print("🚀 Template Building Example\n")
+    print("Template Building Example\n")
 
     # Generate unique template name
     template_name = f"example-python-app-{int(time.time())}"
@@ -51,7 +51,7 @@ EOF""")
         .set_start_cmd("python main.py", wait_for_port(8000))
     )
 
-    print(f"   ✅ Template defined with {len(template.get_steps())} build steps")
+    print(f"   Template defined with {len(template.get_steps())} build steps")
 
     # 2. Build the template
     print("\n2. Building template...")
@@ -72,12 +72,12 @@ EOF""")
             on_progress=lambda progress: print(f"   Progress: {progress}%"),
         ),
     )
-    
-    print("\n   ✅ Template built successfully!")
+
+    print("\n   Template built")
     print(f"   Template ID: {result.template_id}")
     print(f"   Build ID: {result.build_id}")
     print(f"   Duration: {result.duration}ms")
-    
+
     # 3. Create sandbox from template
     print("\n3. Creating sandbox from template...")
 
@@ -91,7 +91,7 @@ EOF""")
         },
     )
 
-    print("   ✅ Sandbox created!")
+    print("   Sandbox created")
     print(f"   Sandbox ID: {sandbox.sandbox_id}")
     info = await sandbox.get_info()
     print(f"   Status: {info.status}")
@@ -111,9 +111,9 @@ print("Web app is running on port 8000!")
     # 5. Cleanup
     print("\n5. Cleaning up...")
     await sandbox.kill()
-    print("   ✅ Sandbox destroyed")
-    
-    print("\n✨ Done!")
+    print("   Sandbox destroyed")
+
+    print("\nDone")
 
 
 if __name__ == "__main__":

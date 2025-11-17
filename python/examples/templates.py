@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Browse and use templates example.
+Browse and Use Templates
 
-Shows how to list templates and create sandboxes from them.
+List templates and create sandboxes from them.
 """
 
 from hopx_ai import Sandbox
@@ -27,15 +27,14 @@ if template.features:
 
 # 3. Create sandbox from template
 print("\n3. Creating sandbox from template...")
-sandbox = Sandbox.create(
-    template=template.name,
-    vcpu=template.default_resources.vcpu if template.default_resources else 2,
-    memory_mb=template.default_resources.memory_mb if template.default_resources else 2048,
-)
+sandbox = Sandbox.create(template=template.name)
+info = sandbox.get_info()
 print(f"   ✅ Created: {sandbox.sandbox_id}")
-print(f"   URL: {sandbox.get_info().public_host}")
+print(f"   URL: {info.public_host}")
+if info.resources:
+    print(f"   Resources: {info.resources.vcpu} vCPU, {info.resources.memory_mb}MB RAM")
 
 # Cleanup
 sandbox.kill()
-print("\n✨ Done!")
+print("\n✅ Sandbox created and cleaned up")
 

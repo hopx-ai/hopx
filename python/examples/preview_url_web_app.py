@@ -2,8 +2,7 @@
 """
 Web App Deployment with Preview URLs
 
-This example shows how to deploy a web application inside a sandbox
-and get its public URL for external access.
+Deploy a web application inside a sandbox and get its public URL.
 
 Before running:
     export HOPX_API_KEY="your_api_key_here"
@@ -12,14 +11,14 @@ Before running:
 import time
 from hopx_ai import Sandbox
 
-print("🚀 Deploying Web App in Sandbox\n")
+print("Deploying Web App in Sandbox\n")
 
 # Create sandbox
 sandbox = Sandbox.create(template="code-interpreter")
-print(f"✅ Sandbox created: {sandbox.sandbox_id}")
+print(f"Sandbox created: {sandbox.sandbox_id}")
 
 # Start a simple HTTP server on port 8080
-print("\n📦 Starting HTTP server on port 8080...")
+print("\nStarting HTTP server on port 8080...")
 
 server_code = """
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -70,27 +69,27 @@ result = sandbox.run_code_background(
     timeout=300
 )
 
-print(f"✅ Server started (process: {result.get('process_id')})")
+print(f"Server started (process: {result.get('process_id')})")
 
 # Wait for server to be ready
-print("⏳ Waiting for server to start...")
+print("Waiting for server to start...")
 time.sleep(3)
 
 # Get the preview URL
 url = sandbox.get_preview_url(8080)
-print(f"\n🌐 Your app is live at: {url}")
-print("\n💡 Open this URL in your browser to see the app!")
+print(f"\nYour app is live at: {url}")
+print("\nOpen this URL in your browser to see the app")
 
 # Keep running for 30 seconds so you can test
-print("\n⏰ Server will run for 30 seconds...")
+print("\nServer will run for 30 seconds...")
 print("   Press Ctrl+C to stop early\n")
 
 try:
     time.sleep(30)
 except KeyboardInterrupt:
-    print("\n⏹️  Interrupted by user")
+    print("\nInterrupted by user")
 
 # Cleanup
-print("\n🧹 Cleaning up...")
+print("\nCleaning up...")
 sandbox.kill()
-print("✅ Done!")
+print("Done")

@@ -1,29 +1,29 @@
 """
-Example: Code Execution with Rich Output
+Code Execution with Rich Output
 
-This example demonstrates code execution with automatic rich output capture:
-- Running Python code
-- Capturing matplotlib plots
-- Capturing pandas DataFrames
-- Working with execution results
+Execute code with automatic rich output capture:
+- Run Python code
+- Capture matplotlib plots
+- Capture pandas DataFrames
+- Work with execution results
 """
 
 from hopx_ai import Sandbox
 import base64
 
 def main():
-    print("🚀 Code Execution with Rich Output Example\n")
+    print("Code Execution with Rich Output\n")
     
     # Create sandbox
     print("1. Creating sandbox...")
     sandbox = Sandbox.create(template="code-interpreter")
-    print(f"✅ Sandbox created: {sandbox.sandbox_id}\n")
-    
+    print(f"Sandbox created: {sandbox.sandbox_id}\n")
+
     try:
         # Simple code execution
         print("2. Running simple Python code...")
         result = sandbox.run_code('print("Hello from Python!")')
-        print(f"✅ Output: {result.stdout.strip()}")
+        print(f"Output: {result.stdout.strip()}")
         print(f"   Execution time: {result.execution_time:.3f}s")
         print(f"   Success: {result.success}\n")
         
@@ -36,7 +36,7 @@ total = x + y
 print(f"The answer is: {total}")
 """
         result = sandbox.run_code(code)
-        print(f"✅ Output: {result.stdout.strip()}\n")
+        print(f"Output: {result.stdout.strip()}\n")
         
         # Code with matplotlib plot
         print("4. Generating matplotlib plot...")
@@ -64,21 +64,21 @@ plt.savefig('/workspace/sine_wave.png', dpi=100, bbox_inches='tight')
 print("Plot saved!")
 """
         result = sandbox.run_code(plot_code)
-        print(f"✅ Stdout: {result.stdout.strip()}")
+        print(f"Stdout: {result.stdout.strip()}")
         print(f"   Rich outputs: {result.rich_count}")
-        
+
         if result.rich_outputs:
             for i, output in enumerate(result.rich_outputs):
-                print(f"   📊 Output {i+1}: {output.type}")
+                print(f"   Output {i+1}: {output.type}")
                 if output.metadata:
                     print(f"      Metadata: {output.metadata}")
         print()
-        
+
         # Download the plot
         if result.rich_count > 0:
             print("5. Downloading generated plot...")
             sandbox.files.download('/workspace/sine_wave.png', '/tmp/sine_wave.png')
-            print("✅ Plot saved to /tmp/sine_wave.png\n")
+            print("Plot saved to /tmp/sine_wave.png\n")
         
         # Code with pandas DataFrame
         print("6. Creating pandas DataFrame...")
@@ -104,7 +104,7 @@ df.to_csv('/workspace/employees.csv', index=False)
 print("\\nDataFrame saved to CSV!")
 """
         result = sandbox.run_code(pandas_code)
-        print(f"✅ Output:\n{result.stdout}")
+        print(f"Output:\n{result.stdout}")
         print(f"   Execution time: {result.execution_time:.3f}s\n")
         
         # Code with error handling
@@ -129,7 +129,7 @@ console.log(`Sum: ${sum}`);
 console.log(`Average: ${sum / numbers.length}`);
 """
         result = sandbox.run_code(js_code, language='javascript')
-        print(f"✅ JavaScript output:\n{result.stdout}\n")
+        print(f"JavaScript output:\n{result.stdout}\n")
 
         # Bash code
         print("9. Running Bash script...")
@@ -142,7 +142,7 @@ echo "CPU cores: $(nproc)"
 echo "Memory: $(free -h | grep Mem | awk '{print $2}')"
 """
         result = sandbox.run_code(bash_code, language='bash')
-        print(f"✅ Bash output:\n{result.stdout}")
+        print(f"Bash output:\n{result.stdout}")
 
         # Complex data analysis
         print("10. Running data analysis with multiple plots...")
@@ -192,16 +192,16 @@ print(f"   Average salary: ${df['Salary'].mean():,.0f}")
 print(f"   Salary range: ${df['Salary'].min():,} - ${df['Salary'].max():,}")
 """
         result = sandbox.run_code(analysis_code)
-        print(f"\n✅ Analysis output:\n{result.stdout}")
+        print(f"\nAnalysis output:\n{result.stdout}")
         print(f"   Rich outputs: {result.rich_count}\n")
-        
-        print("✅ All code execution examples completed successfully!")
-        
+
+        print("All code execution examples completed")
+
     finally:
         # Cleanup
-        print("\n🧹 Cleaning up...")
+        print("\nCleaning up...")
         sandbox.kill()
-        print("✅ Sandbox destroyed")
+        print("Sandbox destroyed")
 
 
 if __name__ == "__main__":

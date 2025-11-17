@@ -9,39 +9,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-**Critical: Template Building Upload Link Response**
-- Fixed `UploadLinkResponse` type missing `filesHash` field returned by API
-- API returns `files_hash` in `/v1/templates/files/upload-link` response
-- SDK type was missing this field, causing potential TypeScript errors on template builds
-- Added `filesHash?: string` to `UploadLinkResponse` interface
+**Critical: Template Building npm Path**
+- Fixed `.npmInstall()` method using incorrect npm binary path
+- Changed from `/usr/bin/npm` to `/usr/local/bin/npm` to match official Node.js Docker images
+- **Impact**: All templates using `.npmInstall()` were failing with "command not found" errors
+- **Resolution**: Templates with npm package installation now build successfully
+- **Files Modified**: `src/template/builder.ts` (lines 350, 370)
 
-**Files Modified**:
-- `src/template/types.ts` - Added `filesHash` field to UploadLinkResponse (line 182)
+### Changed
 
-**Documentation: Incorrect Template References**
-- Fixed all examples and documentation using non-existent template names
-- Only 2 public templates exist: `code-interpreter` and `base`
-- Replaced occurrences of `template: 'python'` and `template: 'nodejs'` with `code-interpreter`
-- Impact: All examples were failing with HTTP 500 errors, now work correctly
+**Examples: Quality Improvements and New Patterns**
+- Updated `template-build.ts` with improved patterns:
+  - Unique template naming using timestamps to avoid conflicts
+  - Inline code creation instead of file copying (more portable examples)
+  - Better error handling in build callbacks with fallback defaults
+  - Relative paths in start commands for cleaner configuration
+- Updated `template-nodejs.ts` with Node.js best practices:
+  - Standard Debian-based Node.js images (`node:20-bookworm`)
+  - Embedded package.json and source code for self-contained examples
+  - Multiple sandbox instances to demonstrate template reuse
+- Created `lifecycle.ts` - comprehensive sandbox lifecycle demonstration:
+  - Shows proper `Sandbox.create()` usage with `timeoutSeconds` parameter
+  - Demonstrates pause/resume workflow
+  - Null-safe resource access patterns
+- Created `ollama-template.ts` - Ollama LLM integration example:
+  - Build custom template with Ollama and language models
+  - Demonstrates template building with model pulling
+  - Shows sandbox reuse pattern with persistent IDs
+  - Full end-to-end LLM inference workflow
 
-### Removed
-
-**Deprecated Endpoints**:
-- Removed `stop()` and `start()` methods (endpoints no longer exist in API)
-- Use `pause()` and `resume()` for sandbox lifecycle management instead
-
-**Files Modified**:
-- `src/sandbox.ts` - Removed deprecated methods and updated error messages
+**Example Testing**: All examples verified with real API and working correctly
 
 ### Documentation
 
-**Updated Template Lists**:
-- README.md: All examples now use correct template names (`code-interpreter` or `base`)
-- All code snippets tested and verified working
+- Example code updated to follow current best practices
+- All template building examples use unique names to prevent conflicts
+- Improved inline documentation with better error handling patterns
 
-**Code Example Testing Policy**:
-- All code examples in documentation are now tested before inclusion
-- Example app file created: `examples/app/main.js`
+## [0.3.1] - 2025-11-17
+
+### Fixed
+
+**Template Building Type Safety**
+- Fixed `UploadLinkResponse` type missing `filesHash` field returned by API
+- Prevents potential TypeScript compilation errors when building custom templates
+- Template builds now have complete type coverage for all API response fields
+
+**Template Names Corrected**
+- Updated all examples to use correct public template names
+- Only 2 public templates available: `code-interpreter` (Python + data science tools) and `base` (minimal Ubuntu)
+- Fixed examples that were using non-existent template names, causing HTTP 500 errors
+- All code examples now work correctly when copy-pasted
+
+**Impact**: If you were experiencing errors during template builds or sandbox creation, these fixes resolve those issues.
+
+### Removed
+
+**Deprecated Lifecycle Methods**
+- Removed `stop()` and `start()` methods - these API endpoints no longer exist
+- **Migration**: Use `pause()` and `resume()` instead for sandbox lifecycle management
+
+**Before** (v0.3.0):
+```typescript
+await sandbox.stop();   // No longer available
+await sandbox.start();  // No longer available
+```
+
+**After** (v0.3.1):
+```typescript
+await sandbox.pause();   // Use this instead
+await sandbox.resume();  // Use this instead
+```
+
+### Documentation
+
+- All code examples tested and verified working
+- Template documentation updated with accurate available templates
+- New example app file for template building tutorials
 
 ## [0.3.0] - 2025-11-16
 

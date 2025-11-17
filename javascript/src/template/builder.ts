@@ -347,7 +347,7 @@ export class Template {
   npmInstall(...packages: (string | string[])[]): Template {
     // Handle no args (package.json)
     if (packages.length === 0) {
-      this.runCmd('/usr/bin/npm install');
+      this.runCmd('/usr/local/bin/npm install');
       return this;
     }
     
@@ -367,7 +367,7 @@ export class Template {
     
     const pkgs = pkgList.join(' ');
     // Use full path for npm (works after systemd restart)
-    this.runCmd(`/usr/bin/npm install -g ${pkgs}`);
+    this.runCmd(`/usr/local/bin/npm install -g ${pkgs}`);
     return this;
   }
   
