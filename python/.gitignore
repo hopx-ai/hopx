@@ -43,6 +43,10 @@ htmlcov/
 test_live.py
 *.log
 
+# ENV
+.env
+.env.local
+
 # agents
 CLAUDE.md
 .claude/
