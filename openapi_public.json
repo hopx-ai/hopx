@@ -1,7 +1,7 @@
 {
     "openapi": "3.0.0",
     "info": {
-        "description": "Production-ready API gateway for VM lifecycle management with multi-tenant authentication, billing, and audit logging. Test",
+        "description": "Production-ready API gateway for VM lifecycle management with multi-tenant authentication, billing, and audit logging.",
         "title": "HOPX Public API",
         "termsOfService": "https://hopx.dev/terms",
         "contact": {
@@ -1758,7 +1758,7 @@
                         "type": "integer"
                     },
                     "from_image": {
-                        "description": "Base image (REQUIRED - separate from steps) TEST",
+                        "description": "Base image (REQUIRED - separate from steps)",
                         "type": "string"
                     },
                     "memory": {
