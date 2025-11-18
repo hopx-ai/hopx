@@ -364,7 +364,8 @@ class Sandbox:
             
             info = self.get_info()
             agent_url = info.public_host.rstrip('/')
-            self._ws_client = WebSocketClient(agent_url)
+            token = self.get_token()
+            self._ws_client = WebSocketClient(agent_url, token)
             logger.debug(f"WebSocket client initialized: {agent_url}")
     
     def refresh_token(self) -> None:
@@ -380,6 +381,8 @@ class Sandbox:
         # Update agent client's JWT token if already initialized
         if self._agent_client is not None and "auth_token" in response:
             self._agent_client.update_jwt_token(response["auth_token"])
+        if self._ws_client is not None and "auth_token" in response:
+            self._ws_client.update_jwt_token(response["auth_token"])
     
     def _ensure_valid_token(self) -> None:
         """

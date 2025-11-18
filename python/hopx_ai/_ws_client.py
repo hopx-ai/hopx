@@ -5,6 +5,7 @@ import asyncio
 import logging
 from typing import Optional, Dict, Any, AsyncIterator, Callable
 from urllib.parse import urlparse
+from websockets.asyncio.client import connect
 
 try:
     import websockets
@@ -25,7 +26,11 @@ class WebSocketClient:
     message protocol, and async iteration.
     """
     
-    def __init__(self, agent_url: str):
+    def __init__(
+        self,
+        agent_url: str,
+        jwt_token: Optional[str] = None,
+    ):
         """
         Initialize WebSocket client.
         
@@ -39,12 +44,20 @@ class WebSocketClient:
             )
         
         self.agent_url = agent_url.rstrip('/')
+        self._jwt_token = jwt_token
         # Convert https:// to wss:// for WebSocket
         parsed = urlparse(self.agent_url)
         ws_scheme = 'wss' if parsed.scheme == 'https' else 'ws'
         self.ws_base_url = f"{ws_scheme}://{parsed.netloc}"
         
         logger.debug(f"WebSocket client initialized: {self.ws_base_url}")
+
+    def update_jwt_token(self, token: str) -> None:
+        """
+        Update JWT token for agent authentication.
+        Used internally when token is refreshed.
+        """
+        self._jwt_token = token
     
     async def connect(
         self,
@@ -64,10 +77,16 @@ class WebSocketClient:
         """
         url = f"{self.ws_base_url}{endpoint}"
         logger.debug(f"Connecting to WebSocket: {url}")
+        additional_headers = None
+        if self._jwt_token:
+            additional_headers = {"Authorization": f"Bearer {self._jwt_token}"}
         
         try:
             ws = await asyncio.wait_for(
-                websockets.connect(url),
+                connect(
+                    url,
+                    additional_headers=additional_headers,
+                ),
                 timeout=timeout
             )
             logger.debug(f"WebSocket connected: {endpoint}")
