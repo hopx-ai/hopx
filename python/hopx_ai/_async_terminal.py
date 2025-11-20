@@ -77,13 +77,13 @@ class AsyncTerminal:
     ) -> WebSocketClientProtocol:
         """
         Connect to interactive terminal.
-        
+
         Args:
             timeout: Connection timeout in seconds
-        
+
         Returns:
             WebSocket connection (use with async context manager)
-        
+
         Example:
             >>> async with await sandbox.terminal.connect() as ws:
             ...     await sandbox.terminal.send_input(ws, "echo 'Hello'\\n")
@@ -93,13 +93,18 @@ class AsyncTerminal:
             ...             break
         """
         ws_url = await self._get_ws_url()
-        
-        # Connect to WebSocket (no auth needed - agent handles it)
+
+        # Get JWT token for agent authentication
+        token = await self._sandbox.get_token()
+        additional_headers = {"Authorization": f"Bearer {token}"}
+
+        # Connect to WebSocket with JWT authentication
         ws = await websockets.connect(
             f"{ws_url}/terminal",
+            additional_headers=additional_headers,
             open_timeout=timeout
         )
-        
+
         return ws
     
     async def send_input(

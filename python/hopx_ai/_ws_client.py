@@ -5,15 +5,17 @@ import asyncio
 import logging
 from typing import Optional, Dict, Any, AsyncIterator, Callable
 from urllib.parse import urlparse
-from websockets.asyncio.client import connect
 
 try:
     import websockets
-    from websockets.client import WebSocketClientProtocol
+    from websockets.asyncio.client import connect, ClientConnection
     WEBSOCKETS_AVAILABLE = True
+    # Use new asyncio API type (websockets 11.0+)
+    WebSocketClientProtocol = ClientConnection
 except ImportError:
     WEBSOCKETS_AVAILABLE = False
     WebSocketClientProtocol = Any  # type: ignore
+    connect = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +93,13 @@ class WebSocketClient:
             )
             logger.debug(f"WebSocket connected: {endpoint}")
             return ws
-        except asyncio.TimeoutError:
-            raise TimeoutError(f"WebSocket connection timeout: {endpoint}")
+        except asyncio.TimeoutError as e:
+            from .errors import TimeoutError as HopxTimeoutError
+            raise HopxTimeoutError(f"WebSocket connection timeout: {endpoint}") from e
         except Exception as e:
+            from .errors import AgentError
             logger.error(f"WebSocket connection failed: {e}")
-            raise
+            raise AgentError(f"WebSocket connection failed: {e}") from e
     
     async def send_message(
         self,
