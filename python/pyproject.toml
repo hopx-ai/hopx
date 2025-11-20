@@ -65,3 +65,9 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 
+[tool.pytest.ini_options]
+python_files = ["*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests"]
+
