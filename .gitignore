@@ -56,3 +56,5 @@ check*.py
 
 # avoid files for local use
 local/
+docs/
+.env
