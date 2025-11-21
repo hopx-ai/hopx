@@ -54,6 +54,12 @@ CLAUDE.md
 # avoid accidental garbage collection
 !README.md
 *.md
+
+# exclude important test documentation files (must come AFTER *.md)
+!tests/README.md
+!tests/INTENTIONALLY_UNTESTED.md
+!tests/COVERAGE_REPORT.md
+
 test*.py
 check*.py
 *.txt
