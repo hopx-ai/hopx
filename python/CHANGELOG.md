@@ -5,6 +5,42 @@ All notable changes to the Hopx Python SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-11-20
+
+### Fixed
+
+**Critical: WebSocket Authentication Missing JWT Token**
+- Fixed WebSocket connections failing authentication due to missing JWT token
+- Both sync (`WebSocketClient`) and async (`AsyncTerminal`) now include JWT authentication
+- Terminal and streaming features now authenticate correctly with sandbox agents
+- Added `update_jwt_token()` method to `WebSocketClient` for token refresh support
+- `Sandbox.refresh_token()` now updates WebSocket client tokens automatically
+- **Impact**: Terminal connections and WebSocket streaming features were failing with authentication errors
+
+**High: WebSockets Library Import Compatibility**
+- Fixed mixed usage of legacy and new websockets API imports
+- Now consistently uses `websockets.asyncio.client` (websockets 11.0+)
+- Updated type hints to use `ClientConnection` from new asyncio API
+- Improved compatibility with websockets>=12.0 requirement
+
+**Code Quality: WebSocket Error Handling**
+- WebSocket connection errors now wrapped in SDK-specific exceptions
+- `TimeoutError` mapped to `HopxTimeoutError` for consistency
+- Other WebSocket errors wrapped in `AgentError` with proper exception chaining
+- Improved error messages with context about failed connections
+
+**Files Modified**:
+- `hopx_ai/_ws_client.py` - Added JWT token support, fixed imports, improved error handling (lines 8-18, 29-32, 55-60, 80-102)
+- `hopx_ai/_async_terminal.py` - Added JWT authentication to async terminal connections (lines 97-99)
+- `hopx_ai/sandbox.py` - Pass token to WebSocketClient, update on refresh (lines 367-368, 384-385)
+
+### Changed
+
+**Documentation: Token Refresh Race Condition**
+- Added warning to `refresh_token()` docstring about race conditions during WebSocket connections
+- Clarified that SDK handles automatic token refresh before expiry
+- Recommended avoiding manual refresh during active WebSocket establishment
+
 ## [0.3.2] - 2025-11-17
 
 ### Fixed

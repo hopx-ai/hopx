@@ -372,6 +372,10 @@ class Sandbox:
         """
         Refresh JWT token for agent authentication.
         Called automatically when token is about to expire (<1 hour left).
+
+        Note: Avoid calling this method while WebSocket connections are being established
+        to prevent race conditions where a connection uses an old token. The SDK handles
+        token refresh automatically before it expires.
         """
         response = self._client.post(f"/v1/sandboxes/{self.sandbox_id}/token/refresh")
 
