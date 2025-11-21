@@ -734,7 +734,7 @@ export class Sandbox {
   async runCode(code: string, options?: CodeExecutionOptions): Promise<ExecutionResult> {
     await this.ensureAgentClient();
 
-    const response = await this.agentClient!.post<ExecuteResponse & { 
+    const response = await this.agentClient!.post<ExecuteResponse & {
       png?: string;
       html?: string;
       json?: any;
@@ -745,7 +745,7 @@ export class Sandbox {
         code,
         language: options?.language ?? 'python',
         timeout: options?.timeout ?? 60,
-        working_dir: options?.workingDir ?? '/workspace',
+        workdir: options?.workingDir ?? '/workspace',
         env: options?.env,
       }
     );
@@ -794,7 +794,7 @@ export class Sandbox {
       code,
       language: options.language ?? 'python',
       timeout: options.timeout ?? 1800,
-      working_dir: options.workingDir ?? '/workspace',
+      workdir: options.workingDir ?? '/workspace',
       env: options.env,
       callback_url: options.callbackUrl,
       callback_headers: options.callbackHeaders,
@@ -809,7 +809,7 @@ export class Sandbox {
       code,
       language: options?.language ?? 'python',
       timeout: options?.timeout ?? 300,
-      working_dir: options?.workingDir ?? '/workspace',
+      workdir: options?.workingDir ?? '/workspace',
       env: options?.env,
       name: options?.name,
     });
@@ -947,7 +947,7 @@ export class Sandbox {
       code,
       language: options?.language ?? 'python',
       timeout: options?.timeout ?? 60,
-      working_dir: options?.workingDir ?? '/workspace',
+      workdir: options?.workingDir ?? '/workspace',
       env: options?.env,
     });
 

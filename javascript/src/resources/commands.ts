@@ -23,7 +23,7 @@ export class Commands {
       command: 'bash',
       args: ['-c', command],
       timeout: options?.timeout || (options?.background ? 60 : 30),
-      working_dir: options?.workingDir || '/workspace',
+      workdir: options?.workingDir || '/workspace',
     };
 
     if (options?.env) {
@@ -49,7 +49,7 @@ export class Commands {
       command: 'bash',
       args: ['-c', command],
       timeout: options?.timeout || 60,
-      working_dir: options?.workingDir || '/workspace',
+      workdir: options?.workingDir || '/workspace',
     };
 
     if (options?.env) {

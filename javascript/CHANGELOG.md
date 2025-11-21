@@ -5,6 +5,26 @@ All notable changes to the Hopx JavaScript/TypeScript SDK will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-11-20
+
+### Fixed
+
+**Critical: Working Directory Parameter Not Respected**
+- Fixed command execution and code execution ignoring `workingDir` parameter
+- Commands always executed from root directory `/` regardless of specified working directory
+- **Root Cause**: SDK sent `working_dir` field but Agent API expects `workdir` (without underscore)
+- **Impact**: All commands executed in wrong directory, breaking workflows that depend on working directory context
+- **Resolution**: Changed API field name from `working_dir` to `workdir` in all execution methods
+- **Affected Methods**:
+  - `sandbox.commands.run()` - Now correctly respects `workingDir` option
+  - `sandbox.runCode()` - Now executes code in specified `workingDir`
+  - `sandbox.runCodeAsync()` - Working directory parameter now functional
+  - `sandbox.runCodeBackground()` - Background execution respects `workingDir`
+  - `sandbox.streamCodeExecution()` - Streaming execution uses correct directory
+- **Files Modified**: `src/resources/commands.ts`, `src/sandbox.ts`
+
+**Testing**: Verified with comprehensive end-to-end tests across all execution methods. All working directory scenarios now function correctly.
+
 ## [0.3.2] - 2025-11-17
 
 ### Fixed

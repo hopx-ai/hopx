@@ -43,7 +43,7 @@ class _CommandsBase(ABC):
             "command": "bash",
             "args": ["-c", command],
             "timeout": timeout,
-            "working_dir": working_dir
+            "workdir": working_dir  # API expects "workdir" without underscore
         }
 
         if env:
@@ -75,7 +75,7 @@ class _CommandsBase(ABC):
             "command": "bash",
             "args": ["-c", command],
             "timeout": timeout,
-            "working_dir": working_dir
+            "workdir": working_dir  # API expects "workdir" without underscore
         }
 
         if env:

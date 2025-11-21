@@ -158,7 +158,7 @@ export interface ExecuteRequest {
   code: string;
   language?: Language;
   timeout?: number;
-  working_dir?: string;
+  workdir?: string;  // FIXED: API expects "workdir" not "working_dir"
   env?: Record<string, string>;
 }
 
@@ -269,7 +269,7 @@ export interface FileResponse {
 export interface CommandRequest {
   command: string;
   timeout?: number;
-  working_dir?: string;
+  workdir?: string;  // FIXED: API expects "workdir" not "working_dir"
   env?: Record<string, string>;
 }
 
@@ -409,7 +409,7 @@ export interface StreamExecuteMessage {
   code: string;
   language?: Language;
   timeout?: number;
-  working_dir?: string;
+  workdir?: string;  // FIXED: API expects "workdir" not "working_dir"
   env?: Record<string, string>;
 }
 

@@ -764,7 +764,7 @@ class AsyncSandbox:
         payload = {
             "language": language,
             "code": code,
-            "working_dir": working_dir,
+            "workdir": working_dir,  # API expects "workdir" without underscore
             "timeout": timeout_seconds
         }
 

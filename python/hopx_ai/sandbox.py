@@ -1241,7 +1241,7 @@ class Sandbox:
         payload = {
             "language": language,
             "code": code,
-            "working_dir": working_dir,
+            "workdir": working_dir,  # API expects "workdir" without underscore
             "timeout": timeout
         }
         
@@ -1338,7 +1338,7 @@ class Sandbox:
             "code": code,
             "language": language,
             "timeout": timeout,
-            "working_dir": working_dir,
+            "workdir": working_dir,  # API expects "workdir" without underscore
             "callback_url": callback_url,
         }
         
@@ -1366,25 +1366,27 @@ class Sandbox:
         language: str = "python",
         timeout: int = 300,
         env: Optional[Dict[str, str]] = None,
-        working_dir: str = "/workspace",
         name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute code in background and return immediately.
-        
+
         Use list_processes() to check status and kill_process() to terminate.
-        
+
+        Note: Background code execution does not support working_dir parameter
+        (the Agent API /execute/background endpoint doesn't include workdir field).
+        For commands with working_dir support, use commands.run(background=True).
+
         Args:
             code: Code to execute
             language: Language (python, javascript, bash, go)
             timeout: Execution timeout in seconds (default: 300 = 5 min)
             env: Optional environment variables
-            working_dir: Working directory (default: /workspace)
             name: Optional process name for identification
-        
+
         Returns:
             Dict with process_id, execution_id, status
-        
+
         Example:
             >>> # Start background execution
             >>> result = sandbox.run_code_background(
@@ -1393,26 +1395,26 @@ class Sandbox:
             ...     env={"GPU": "enabled"}
             ... )
             >>> process_id = result['process_id']
-            >>> 
+            >>>
             >>> # Check status
             >>> processes = sandbox.list_processes()
             >>> for p in processes:
             ...     if p['process_id'] == process_id:
             ...         print(f"Status: {p['status']}")
-            >>> 
+            >>>
             >>> # Kill if needed
             >>> sandbox.kill_process(process_id)
         """
         self._ensure_agent_client()
-        
+
         logger.debug(f"Starting background {language} execution ({len(code)} chars)")
-        
+
         # Build request payload
+        # Note: /execute/background API doesn't support workdir parameter
         payload = {
             "code": code,
             "language": language,
             "timeout": timeout,
-            "working_dir": working_dir,
         }
         
         if env:
@@ -1560,7 +1562,7 @@ class Sandbox:
                 "code": code,
                 "language": language,
                 "timeout": timeout,
-                "working_dir": working_dir
+                "workdir": working_dir  # API expects "workdir" without underscore
             }
             if env:
                 request["env"] = env

@@ -5,6 +5,55 @@ All notable changes to the Hopx Python SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-11-20
+
+### Fixed
+
+**Critical: working_dir Parameter Not Working**
+- Fixed `working_dir` parameter being ignored in all command and code execution methods
+- SDK sent `"working_dir"` (with underscore) but Agent API expects `"workdir"` (without underscore)
+- Commands executed in root directory (`/`) instead of specified working directory
+- **Impact**: All commands with custom `working_dir` parameter were ignored
+- **Files Modified**:
+  - `hopx_ai/_base_commands.py` - Fixed payload field names (lines 46, 78)
+  - `hopx_ai/sandbox.py` - Fixed code execution payloads (lines 1244, 1341, 1415, 1563)
+  - `hopx_ai/async_sandbox.py` - Fixed async code execution payload (line 767)
+
+**Comprehensive Testing - 10/10 Methods Verified**:
+- ✅ `Commands.run()` - foreground command execution
+- ✅ `Commands.run(background=True)` - background command execution
+- ✅ `Sandbox.run_code(language="bash")` - Bash code execution
+- ✅ `AsyncCommands.run()` - async command execution
+- ✅ `AsyncCommands.run(background=True)` - async background commands
+- ✅ `AsyncSandbox.run_code()` - async code execution
+- ✅ `Sandbox.run_code_async()` - async code with callback (verified)
+- ✅ `Sandbox.run_code_stream()` - streaming execution (verified)
+- ⚠️ `Sandbox.run_code(language="python")` - Agent API limitation (Jupyter kernel)
+- ⚠️ `Sandbox.run_code_background()` - Agent API doesn't support workdir for this endpoint
+
+**Test Result**: 8/10 methods fully working (80% success rate)
+
+**Known Agent API Limitations** (outside SDK control):
+
+1. **Python/Jupyter Kernel**: Jupyter kernel maintains own working directory state
+   - Workarounds: Use `os.chdir()` in Python code, or execute via Bash, or use `commands.run()`
+
+2. **Background Code Execution**: `/execute/background` endpoint doesn't include `workdir` in OpenAPI schema
+   - The Agent API specification `main.BackgroundExecuteRequest` has no `workdir` field
+   - Background code execution always runs in `/tmp/hopx-exec`
+   - Recommendation: Use `commands.run(background=True)` instead (which does support workdir)
+
+**Test Files**: `test_all_workdir_methods.py`, `COMPREHENSIVE_WORKDIR_TEST_RESULTS.md`
+
+### Changed
+
+**API Compatibility: Removed working_dir from run_code_background()**
+- Removed `working_dir` parameter from `Sandbox.run_code_background()` method
+- The Agent API `/execute/background` endpoint doesn't support `workdir` in its schema
+- Maintaining 1:1 API compatibility - SDK should not accept parameters the API doesn't support
+- **Migration**: Use `commands.run(background=True, working_dir="/path")` for background execution with working directory control
+- **File Modified**: `hopx_ai/sandbox.py` (line 1362)
+
 ## [0.3.2] - 2025-11-17
 
 ### Fixed
