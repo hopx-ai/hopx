@@ -5,6 +5,22 @@ All notable changes to the Hopx Python SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2025-11-26
+
+### Not Affected
+
+**Token Refresh Issues (JavaScript-only)**
+
+The JavaScript SDK v0.3.6 fixed two token refresh issues that do not affect Python:
+
+1. **401 Interceptor Passthrough**: JS axios interceptors transformed 401 errors before retry logic could handle token refresh. Python uses httpx without interceptors - 401 handling is direct in the request flow.
+
+2. **Infinite Loop Prevention**: JS recursive retry used same attempt counter after token refresh. Python uses `for` loop with `continue` - attempt counter increments automatically.
+
+Python's architecture handles both cases correctly. Version bump for SDK parity only.
+
+---
+
 ## [0.3.5] - 2025-11-26
 
 ### Changed
@@ -26,6 +42,8 @@ Increased HTTP timeout buffer from 5 seconds to 30 seconds to match JavaScript S
 - `hopx_ai/commands.py` - Updated commands.run() timeout buffer
 - `hopx_ai/_async_commands.py` - Updated async commands timeout buffer
 - `hopx_ai/desktop.py` - Updated wait_for() timeout buffer
+
+---
 
 ## [0.3.4] - 2025-11-25
 

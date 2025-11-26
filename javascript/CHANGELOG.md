@@ -5,6 +5,26 @@ All notable changes to the Hopx JavaScript/TypeScript SDK will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2025-11-26
+
+### Fixed
+
+**Critical: Token Refresh Callback Never Invoked on 401 Errors**
+- Fixed token refresh mechanism not triggering when JWT tokens expire
+- **Root Cause**: Response interceptor transformed 401 errors to `AuthenticationError` before `requestWithRetry` could handle token refresh. The token refresh check used `axios.isAxiosError(error)` which returned `false` for custom error types
+- **Impact**: 401 Unauthorized errors always threw `AuthenticationError` instead of attempting token refresh. Long-lived sandbox sessions would fail after token expiry
+- **Resolution**: Modified response interceptor to pass 401 errors through as raw AxiosErrors, allowing `requestWithRetry` to handle token refresh properly
+- **Files Modified**: `src/client.ts` (lines 69-83)
+
+**Fixed: Infinite Loop Risk in Token Refresh**
+- Fixed potential infinite loop when token refresh returns an invalid token
+- **Root Cause**: After successful token refresh, `requestWithRetry` was called with same `attempt` value instead of `attempt + 1`
+- **Impact**: If token refresh succeeded but returned an invalid token, the retry loop would never terminate
+- **Resolution**: Changed `attempt` to `attempt + 1` when retrying after token refresh
+- **Files Modified**: `src/client.ts` (line 131)
+
+---
+
 ## [0.3.5] - 2025-11-26
 
 ### Fixed

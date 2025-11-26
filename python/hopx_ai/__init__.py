@@ -73,7 +73,7 @@ from .template import (
     wait_for_command,
 )
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 __all__ = [
     "Sandbox",
     "AsyncSandbox",
