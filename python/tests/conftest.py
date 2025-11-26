@@ -8,7 +8,20 @@ integration and E2E tests.
 import os
 import pytest
 import time
+from pathlib import Path
 from hopx_ai import Sandbox
+
+# Load .env file if it exists (for test environment variables)
+try:
+    from dotenv import load_dotenv
+    
+    # Try to load .env file from tests/integration/.env (same location as bash script)
+    env_file = Path(__file__).parent / "integration" / ".env"
+    if env_file.exists():
+        load_dotenv(env_file, override=False)  # Don't override existing env vars
+except ImportError:
+    # python-dotenv not installed, skip .env loading
+    pass
 
 # Test configuration
 BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")

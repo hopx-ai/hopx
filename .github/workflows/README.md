@@ -11,14 +11,17 @@ Runs the complete test suite across multiple Python versions (3.8, 3.9, 3.10, 3.
 **Triggers:**
 - Pull requests to `main`, `master`, or `develop`
 - Pushes to `main`, `master`, or `develop`
+- Manual workflow dispatch (with optional feature selection)
 - Only runs when Python files or workflow files change
 
 **Features:**
+- **Intelligent Test Selection**: Automatically detects which tests to run based on changed files
 - Tests on 5 Python versions in parallel
-- Runs both integration and E2E tests
+- Runs both integration and E2E tests (or specific subsets)
 - Generates test reports and coverage
 - Uploads artifacts for review
 - Uploads coverage to Codecov (if configured)
+- Creates GitHub issues for test failures
 
 ### `test-quick.yml` - Quick PR Tests
 
@@ -26,11 +29,13 @@ Runs a quick test suite on Python 3.11 for faster PR feedback.
 
 **Triggers:**
 - Pull requests to `main`, `master`, or `develop`
+- Manual workflow dispatch (with optional feature selection)
 - Only runs when Python files or workflow files change
 
 **Features:**
+- **Intelligent Test Selection**: Automatically detects which tests to run based on changed files
 - Fast feedback (single Python version)
-- Runs integration tests
+- Runs integration tests (or specific subsets)
 - Posts test results as PR comment
 - Uploads test reports as artifacts
 
@@ -68,9 +73,112 @@ The following secrets must be configured in GitHub repository settings:
 - Quick test workflow posts results as PR comments
 - Full test suite results are available in the Actions tab
 
-## Customization
+## Intelligent Test Selection
 
-### Changing Python Versions
+The workflows automatically determine which tests to run based on the source code that changed. This makes CI/CD faster and more efficient by only running relevant tests.
+
+### How It Works
+
+1. **Automatic Detection**: When you push code or create a PR, the workflow analyzes all changed files
+2. **Smart Mapping**: Changed source files are mapped to their corresponding test directories
+3. **Multiple Classes**: If multiple classes are changed, tests for all affected areas are run
+4. **Safety Fallback**: If no specific mapping is found, all tests run (ensures nothing is missed)
+
+### Source Code to Test Mapping
+
+The mapping is defined in `.github/test_mapper.py`. Here's how it works:
+
+| Source File | Tests Run |
+|------------|-----------|
+| `hopx_ai/sandbox.py` | `tests/integration/sandbox/`, `tests/e2e/sandbox/` |
+| `hopx_ai/async_sandbox.py` | `tests/integration/async_sandbox/`, `tests/e2e/async_sandbox/` |
+| `hopx_ai/desktop.py` | `tests/integration/desktop/` |
+| `hopx_ai/template/*` | `tests/integration/template/` |
+| `hopx_ai/files.py` | `tests/integration/sandbox/resources/files/`, `tests/integration/async_sandbox/resources/files/` |
+| `hopx_ai/commands.py` | `tests/integration/sandbox/resources/commands/`, `tests/integration/async_sandbox/resources/commands/` |
+| `hopx_ai/env_vars.py` | `tests/integration/sandbox/resources/env_vars/`, `tests/integration/async_sandbox/resources/env_vars/` |
+| `hopx_ai/cache.py` | `tests/integration/sandbox/resources/cache/`, `tests/integration/async_sandbox/resources/cache/` |
+| `hopx_ai/terminal.py` | `tests/integration/terminal/` |
+| `hopx_ai/_client.py` | `tests/integration/`, `tests/e2e/` (runs all - core infrastructure) |
+| `hopx_ai/errors.py` | `tests/integration/`, `tests/e2e/` (runs all - affects everything) |
+
+### Examples
+
+**Example 1: Single Class Change**
+```
+Changed: python/hopx_ai/sandbox.py
+Result: Runs tests/integration/sandbox/ and tests/e2e/sandbox/
+```
+
+**Example 2: Multiple Classes in One Push**
+```
+Changed:
+- python/hopx_ai/sandbox.py
+- python/hopx_ai/files.py
+- python/hopx_ai/commands.py
+
+Result: Runs tests for all three:
+- tests/integration/sandbox/
+- tests/integration/sandbox/resources/files/
+- tests/integration/sandbox/resources/commands/
+- tests/integration/async_sandbox/resources/files/
+- tests/integration/async_sandbox/resources/commands/
+- tests/e2e/sandbox/
+```
+
+**Example 3: Multiple Commits in Push**
+```
+Commit 1: Changed sandbox.py
+Commit 2: Changed template/builder.py
+Commit 3: Changed desktop.py
+
+Result: Runs all affected tests:
+- tests/integration/sandbox/
+- tests/integration/template/
+- tests/integration/desktop/
+```
+
+**Example 4: Core Infrastructure Change**
+```
+Changed: python/hopx_ai/_client.py
+
+Result: Runs all tests (safety):
+- tests/integration/
+- tests/e2e/
+```
+
+### Manual Test Selection
+
+You can manually trigger workflows with specific test selection:
+
+1. Go to **Actions** → Select workflow → **Run workflow**
+2. Choose options:
+   - **Test feature**: Enter feature name (e.g., `sandbox`, `template`, `sandbox.listing`)
+   - **Test type**: Choose `integration`, `e2e`, or `all`
+3. Click **Run workflow**
+
+**Manual Examples:**
+- Feature: `sandbox` → Runs all sandbox tests
+- Feature: `sandbox.listing` → Runs only sandbox listing tests
+- Feature: `template` → Runs template tests
+- Feature: (empty) → Auto-detects from changed files
+- Feature: `all` → Runs all tests
+
+### Customization
+
+#### Adding New Mappings
+
+Edit `.github/test_mapper.py` to add new source-to-test mappings:
+
+```python
+SOURCE_TO_TESTS = {
+    "hopx_ai/your_new_class.py": [
+        "tests/integration/your_feature/",
+    ],
+}
+```
+
+#### Changing Python Versions
 
 Edit the `matrix.python-version` in `test.yml`:
 
@@ -82,15 +190,6 @@ matrix:
 ### Skipping Tests
 
 Add `[skip ci]` or `[ci skip]` to your commit message to skip CI runs.
-
-### Running Specific Tests
-
-Modify the `run_tests.sh` command in the workflow:
-
-```yaml
-run: |
-  ./run_tests.sh -t integration -k "sandbox" -v
-```
 
 ## Troubleshooting
 
@@ -106,4 +205,14 @@ run: |
 - Check that file paths match the `paths` filter
 - Verify the branch name matches the trigger branches
 - Ensure the workflow file is in `.github/workflows/`
+
+### Wrong tests are running
+- Check the test mapping in `.github/TEST_MAPPING.md`
+- Review workflow logs to see which files were detected
+- Verify your source file has a mapping in `test_mapper.py`
+
+## Additional Documentation
+
+- **[Test Mapping Guide](TEST_MAPPING.md)**: Detailed documentation on how source code changes map to test paths
+- **[Test Issues Guide](README_TEST_ISSUES.md)**: How automated GitHub issue creation works for test failures
 

@@ -9,10 +9,72 @@ on:
     paths:
       - 'python/**'
       - '.github/workflows/test*.yml'
+      - '.github/test_mapper.py'
+  workflow_dispatch:
+    inputs:
+      test_feature:
+        description: 'Test feature (sandbox, template, desktop, etc.) - leave empty for auto-detection'
+        required: false
+        type: string
+        default: ''
 
 jobs:
+  determine-tests:
+    name: Determine Test Scope
+    runs-on: ubuntu-latest
+    outputs:
+      test_paths: ${{ steps.map-tests.outputs.test_paths }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.test_feature }}" ]; then
+            FEATURE="${{ github.event.inputs.test_feature }}"
+            if [ "$FEATURE" == "all" ]; then
+              echo "" > changed_files.txt
+            else
+              FEATURE_PATH=$(echo "$FEATURE" | tr '.' '/')
+              echo "python/hopx_ai/${FEATURE_PATH}.py" > changed_files.txt
+            fi
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            git diff --name-only $BASE...$HEAD > changed_files.txt
+          fi
+          
+          echo "Changed files:"
+          cat changed_files.txt || echo "(empty - will run all tests)"
+
+      - name: Map files to test paths
+        id: map-tests
+        run: |
+          if [ ! -s changed_files.txt ] || [ -z "$(cat changed_files.txt | tr -d '\n')" ]; then
+            echo "test_paths=tests/integration/" >> $GITHUB_OUTPUT
+            echo "Running all integration tests"
+            exit 0
+          fi
+          
+          python3 .github/test_mapper.py changed_files.txt -v > mapper_output.txt || true
+          TEST_PATHS=$(grep "^test_paths=" mapper_output.txt | cut -d'=' -f2- || echo "")
+          
+          # Filter to integration tests only for quick test
+          TEST_PATHS=$(echo "$TEST_PATHS" | grep -o "tests/integration/[^ ]*" | tr '\n' ' ' || echo "tests/integration/")
+          
+          if [ -z "$TEST_PATHS" ] || [ "$TEST_PATHS" == " " ]; then
+            TEST_PATHS="tests/integration/"
+          fi
+          
+          echo "test_paths=$TEST_PATHS" >> $GITHUB_OUTPUT
+          echo "Test paths: $TEST_PATHS"
+
   quick-test:
     name: Quick Test (Python 3.11)
+    needs: determine-tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -31,7 +93,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install pytest pytest-asyncio pytest-xdist pytest-cov
+          pip install pytest pytest-asyncio pytest-xdist pytest-cov pytest-html
 
       - name: Run integration tests
         working-directory: ./python
@@ -40,7 +102,14 @@ jobs:
           HOPX_TEST_BASE_URL: ${{ secrets.HOPX_TEST_BASE_URL || 'https://api-eu.hopx.dev' }}
           HOPX_TEST_TEMPLATE: ${{ secrets.HOPX_TEST_TEMPLATE || 'code-interpreter' }}
         run: |
-          ./run_tests.sh -t integration -v -r
+          mkdir -p tests/reports
+          pytest ${{ needs.determine-tests.outputs.test_paths }} \
+            -v \
+            --showlocals \
+            --junitxml=tests/reports/junit.xml \
+            --html=tests/reports/report.html \
+            --self-contained-html \
+            -r fExs
 
       - name: Upload test reports
         if: always()
@@ -48,7 +117,7 @@ jobs:
         with:
           name: test-reports-quick
           path: |
-            python/local/reports/**
+            python/tests/reports/**
           retention-days: 7
 
       - name: Comment PR with test results

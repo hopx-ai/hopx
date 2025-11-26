@@ -9,6 +9,7 @@ on:
     paths:
       - 'python/**'
       - '.github/workflows/test.yml'
+      - '.github/test_mapper.py'
   push:
     branches:
       - main
@@ -17,10 +18,116 @@ on:
     paths:
       - 'python/**'
       - '.github/workflows/test.yml'
+      - '.github/test_mapper.py'
+  workflow_dispatch:
+    inputs:
+      test_feature:
+        description: 'Test feature (sandbox, template, desktop, etc.) - leave empty for auto-detection'
+        required: false
+        type: string
+        default: ''
+      test_type:
+        description: 'Test type (integration, e2e, or all)'
+        required: false
+        type: choice
+        options:
+          - all
+          - integration
+          - e2e
+        default: 'all'
 
 jobs:
+  determine-tests:
+    name: Determine Test Scope
+    runs-on: ubuntu-latest
+    outputs:
+      test_paths: ${{ steps.map-tests.outputs.test_paths }}
+      run_integration: ${{ steps.map-tests.outputs.run_integration }}
+      run_e2e: ${{ steps.map-tests.outputs.run_e2e }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for comparison
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          # Handle manual workflow dispatch with explicit feature
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.test_feature }}" ]; then
+            FEATURE="${{ github.event.inputs.test_feature }}"
+            if [ "$FEATURE" == "all" ]; then
+              echo "" > changed_files.txt
+            else
+              # Convert feature to path (e.g., "sandbox.listing" -> "hopx_ai/sandbox.py" or "tests/integration/sandbox/listing/")
+              FEATURE_PATH=$(echo "$FEATURE" | tr '.' '/')
+              echo "python/hopx_ai/${FEATURE_PATH}.py" > changed_files.txt
+            fi
+          # Handle PR
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            git diff --name-only $BASE...$HEAD > changed_files.txt
+          # Handle push (may contain multiple commits)
+          else
+            if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+              git diff --name-only ${{ github.event.before }}...${{ github.event.after }} > changed_files.txt
+            else
+              git diff --name-only HEAD~1 HEAD > changed_files.txt
+            fi
+          fi
+          
+          echo "Changed files:"
+          cat changed_files.txt || echo "(empty - will run all tests)"
+
+      - name: Map files to test paths
+        id: map-tests
+        run: |
+          # If no changed files or explicit "all", run all tests
+          if [ ! -s changed_files.txt ] || [ -z "$(cat changed_files.txt | tr -d '\n')" ]; then
+            echo "test_paths=tests/integration/ tests/e2e/" >> $GITHUB_OUTPUT
+            echo "run_integration=true" >> $GITHUB_OUTPUT
+            echo "run_e2e=true" >> $GITHUB_OUTPUT
+            echo "Running all tests (no specific changes detected)"
+            exit 0
+          fi
+          
+          # Use test mapper to determine test paths
+          TEST_TYPE="${{ github.event.inputs.test_type || 'all' }}"
+          python3 .github/test_mapper.py changed_files.txt -v > mapper_output.txt || true
+          
+          TEST_PATHS=$(grep "^test_paths=" mapper_output.txt | cut -d'=' -f2- || echo "")
+          
+          # Filter by test type if specified
+          if [ "$TEST_TYPE" == "integration" ]; then
+            TEST_PATHS=$(echo "$TEST_PATHS" | grep -o "tests/integration/[^ ]*" | tr '\n' ' ' || echo "tests/integration/")
+            RUN_INTEGRATION=true
+            RUN_E2E=false
+          elif [ "$TEST_TYPE" == "e2e" ]; then
+            TEST_PATHS=$(echo "$TEST_PATHS" | grep -o "tests/e2e/[^ ]*" | tr '\n' ' ' || echo "tests/e2e/")
+            RUN_INTEGRATION=false
+            RUN_E2E=true
+          else
+            RUN_INTEGRATION=true
+            RUN_E2E=true
+          fi
+          
+          # Fallback if no paths found
+          if [ -z "$TEST_PATHS" ] || [ "$TEST_PATHS" == " " ]; then
+            TEST_PATHS="tests/integration/ tests/e2e/"
+            RUN_INTEGRATION=true
+            RUN_E2E=true
+          fi
+          
+          echo "test_paths=$TEST_PATHS" >> $GITHUB_OUTPUT
+          echo "run_integration=$RUN_INTEGRATION" >> $GITHUB_OUTPUT
+          echo "run_e2e=$RUN_E2E" >> $GITHUB_OUTPUT
+          echo "Test paths: $TEST_PATHS"
+
   test:
     name: Test Python SDK
+    needs: determine-tests
+    if: needs.determine-tests.outputs.run_integration == 'true' || needs.determine-tests.outputs.run_e2e == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -42,25 +149,45 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install pytest pytest-asyncio pytest-xdist pytest-cov
+          pip install pytest pytest-asyncio pytest-xdist pytest-cov pytest-html
 
       - name: Run integration tests
+        if: needs.determine-tests.outputs.run_integration == 'true'
         working-directory: ./python
         env:
           HOPX_API_KEY: ${{ secrets.HOPX_API_KEY }}
           HOPX_TEST_BASE_URL: ${{ secrets.HOPX_TEST_BASE_URL || 'https://api-eu.hopx.dev' }}
           HOPX_TEST_TEMPLATE: ${{ secrets.HOPX_TEST_TEMPLATE || 'code-interpreter' }}
         run: |
-          ./run_tests.sh -t integration -v -r
+          mkdir -p tests/reports/integration
+          # Extract integration test paths
+          INTEGRATION_PATHS=$(echo "${{ needs.determine-tests.outputs.test_paths }}" | grep -o "tests/integration/[^ ]*" | tr '\n' ' ' || echo "tests/integration/")
+          pytest $INTEGRATION_PATHS \
+            -v \
+            --showlocals \
+            --junitxml=tests/reports/integration/junit_${{ matrix.python-version }}.xml \
+            --html=tests/reports/integration/report_${{ matrix.python-version }}.html \
+            --self-contained-html \
+            -r fExs
 
       - name: Run E2E tests
+        if: needs.determine-tests.outputs.run_e2e == 'true'
         working-directory: ./python
         env:
           HOPX_API_KEY: ${{ secrets.HOPX_API_KEY }}
           HOPX_TEST_BASE_URL: ${{ secrets.HOPX_TEST_BASE_URL || 'https://api-eu.hopx.dev' }}
           HOPX_TEST_TEMPLATE: ${{ secrets.HOPX_TEST_TEMPLATE || 'code-interpreter' }}
         run: |
-          ./run_tests.sh -t e2e -v -r
+          mkdir -p tests/reports/e2e
+          # Extract E2E test paths
+          E2E_PATHS=$(echo "${{ needs.determine-tests.outputs.test_paths }}" | grep -o "tests/e2e/[^ ]*" | tr '\n' ' ' || echo "tests/e2e/")
+          pytest $E2E_PATHS \
+            -v \
+            --showlocals \
+            --junitxml=tests/reports/e2e/junit_${{ matrix.python-version }}.xml \
+            --html=tests/reports/e2e/report_${{ matrix.python-version }}.html \
+            --self-contained-html \
+            -r fExs
         continue-on-error: true  # E2E tests may be flaky
 
       - name: Upload test reports
@@ -69,7 +196,7 @@ jobs:
         with:
           name: test-reports-${{ matrix.python-version }}
           path: |
-            python/local/reports/**
+            python/tests/reports/**
             python/.coverage
           retention-days: 7
 
@@ -106,4 +233,119 @@ jobs:
           if [ -f test-reports/test_summary.md ]; then
             cat test-reports/test_summary.md >> $GITHUB_STEP_SUMMARY
           fi
+
+  create-test-issues:
+    name: Create GitHub Issues for Test Failures
+    runs-on: ubuntu-latest
+    needs: test
+    if: failure() || always()  # Run even if tests pass to check for failures
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download all test reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-reports-*
+          merge-multiple: true
+          path: test-reports
+
+      - name: Find and merge JUnit XML files
+        id: find-junit
+        run: |
+          # Find all JUnit XML files
+          find test-reports -name "*.xml" -type f > junit_files.txt || true
+          
+          if [ -s junit_files.txt ]; then
+            # If multiple files, we'll process the first comprehensive one
+            # or merge them if needed
+            JUNIT_FILE=$(head -1 junit_files.txt)
+            echo "junit_file=$JUNIT_FILE" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "Found JUnit XML: $JUNIT_FILE"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No JUnit XML files found in test-reports"
+          fi
+
+      - name: Generate issue body from JUnit XML
+        id: generate-issue
+        if: steps.find-junit.outputs.found == 'true'
+        run: |
+          JUNIT_FILE="${{ steps.find-junit.outputs.junit_file }}"
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          python3 python/tests/create_github_issue.py \
+            "$JUNIT_FILE" \
+            --output issue_body.md \
+            --commit-sha "${{ github.sha }}" \
+            --branch "${{ github.ref_name }}" \
+            --workflow-url "$WORKFLOW_URL" \
+            --artifacts "test-reports" \
+            --only-if-failed || true
+          
+          if [ -f issue_body.md ]; then
+            echo "has_failures=true" >> $GITHUB_OUTPUT
+            echo "Issue body generated successfully"
+          else
+            echo "has_failures=false" >> $GITHUB_OUTPUT
+            echo "No test failures detected or issue generation skipped"
+          fi
+
+      - name: Create GitHub Issue
+        if: steps.generate-issue.outputs.has_failures == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issueBody = fs.readFileSync('issue_body.md', 'utf8');
+            
+            // Check if similar issue already exists (same commit or recent failures)
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'tests,automated',
+              per_page: 10
+            });
+            
+            // Check if we should create a new issue or update existing
+            const commitSha = '${{ github.sha }}';
+            const existingIssue = issues.find(issue => 
+              issue.body.includes(commitSha) || 
+              issue.title.includes(new Date().toISOString().split('T')[0])
+            );
+            
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `## Updated Test Results\n\n${issueBody}`
+              });
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const title = `[TEST FAILURES] Test Run - ${new Date().toISOString().split('T')[0]} - Commit ${commitSha.substring(0, 7)}`;
+              
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: issueBody,
+                labels: ['tests', 'automated', 'bug']
+              });
+              
+              console.log(`Created issue #${issue.number}: ${issue.html_url}`);
+            }
 
