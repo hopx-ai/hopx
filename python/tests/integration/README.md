@@ -51,5 +51,5 @@ integration/
 
 ## Running Tests
 
-See the main [tests README](../README.md) for instructions on running tests.
+See the main [tests README](../README.md) for instructions on running tests
 
