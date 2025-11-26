@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-      - dev
+      - test
     paths:
       - 'python/**'
       - '.github/workflows/test.yml'
@@ -12,7 +12,7 @@ on:
   push:
     branches:
       - main
-      - dev
+      - test
     paths:
       - 'python/**'
       - '.github/workflows/test.yml'
