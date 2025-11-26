@@ -1,6 +1,6 @@
 {
-  "generated": "2025-11-27T03:00:06.849380",
-  "total_reports": 6,
+  "generated": "2025-11-27T03:45:04.771831",
+  "total_reports": 5,
   "reports": [
     {
       "name": "testasyncsandboxcreation_test_create_without_internet",
@@ -40,14 +40,6 @@
       "directory": "testasyncsandboxcreation_test_create_invalid_template",
       "size": 39363,
       "date": "2025-11-27T02:59:09.362009",
-      "has_junit": true
-    },
-    {
-      "name": "testasyncsandboxcreation_test_create_from_template_name",
-      "path": "testasyncsandboxcreation_test_create_from_template_name/report.html",
-      "directory": "testasyncsandboxcreation_test_create_from_template_name",
-      "size": 32300,
-      "date": "2025-11-27T02:58:37.053636",
       "has_junit": true
     }
   ]

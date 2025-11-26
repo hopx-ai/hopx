@@ -63,6 +63,32 @@ def generate_manifest():
     with open(manifest_path, 'w', encoding='utf-8') as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
     
+    # Also embed manifest in index.html for file:// protocol support
+    index_html_path = reports_dir / 'index.html'
+    if index_html_path.exists():
+        # Read the current index.html
+        with open(index_html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Create the embedded manifest script
+        manifest_script = f'<script id="embedded-manifest" type="application/json">{json.dumps(manifest, ensure_ascii=False)}</script>'
+        
+        # Check if embedded manifest already exists, replace it, otherwise add before closing </head>
+        if '<script id="embedded-manifest"' in html_content:
+            # Replace existing embedded manifest
+            import re
+            pattern = r'<script id="embedded-manifest"[^>]*>.*?</script>'
+            html_content = re.sub(pattern, manifest_script, html_content, flags=re.DOTALL)
+        else:
+            # Add before closing </head> tag
+            html_content = html_content.replace('</head>', f'    {manifest_script}\n</head>')
+        
+        # Write back
+        with open(index_html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        print(f"✓ Updated index.html with embedded manifest")
+    
     print(f"✓ Generated manifest.json with {len(reports)} reports")
     return manifest
 

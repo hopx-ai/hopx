@@ -126,7 +126,7 @@ def build_test_hierarchy():
     
     return hierarchy
 
-def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False, settings=None):
+def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False, settings=None, show_generate_manifest=False):
     """Display a menu and return selected item."""
     clear_screen()
     
@@ -155,6 +155,8 @@ def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False
         help_parts.append("'a' for all")
     if show_back:
         help_parts.append("'b' for back")
+    if show_generate_manifest:
+        help_parts.append("'m' for manifest")
     if settings:
         help_parts.append("'v' for verbose")
         help_parts.append("'r' for reports")
@@ -185,10 +187,13 @@ def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False
         if show_run_all:
             print(f"{Colors.GREEN}[a] Run All Tests{Colors.ENDC}")
         
+        if show_generate_manifest:
+            print(f"{Colors.CYAN}[m] Generate Manifest{Colors.ENDC}")
+        
         if show_back:
             print(f"{Colors.YELLOW}[b] ← Back{Colors.ENDC}")
         
-        if show_run_all or show_back:
+        if show_run_all or show_back or show_generate_manifest:
             print()
         
         # Display items with highlighting
@@ -273,6 +278,8 @@ def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False
             # Handle special options
             if choice == 'a' and show_run_all:
                 return ('__run_all__', 'Run All Tests')
+            if choice == 'm' and show_generate_manifest:
+                return ('__generate_manifest__', 'Generate Manifest')
             if choice == 'b' and show_back:
                 return ('__back__', 'Back')
             
@@ -442,6 +449,10 @@ def run_tests(test_path, test_name="", settings=None):
 
 def navigate_suite(suite_name, suite_data, settings, breadcrumb=""):
     """Navigate through a test suite."""
+    # Get directories for manifest updates
+    script_dir = Path(__file__).parent.resolve()
+    python_dir = script_dir.parent
+    
     current_breadcrumb = f"{breadcrumb} > {suite_name}" if breadcrumb else suite_name
     
     while True:
@@ -453,8 +464,14 @@ def navigate_suite(suite_name, suite_data, settings, breadcrumb=""):
             current_breadcrumb,
             show_back=bool(breadcrumb),
             show_run_all=True,
-            settings=settings
+            settings=settings,
+            show_generate_manifest=True
         )
+        
+        if selected_key == '__generate_manifest__':
+            update_manifest(script_dir, python_dir)
+            input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
+            continue
         
         if selected_key == '__settings_changed__':
             continue  # Redisplay menu after settings change
@@ -490,6 +507,10 @@ def navigate_suite(suite_name, suite_data, settings, breadcrumb=""):
 
 def navigate_category(category_name, category_data, settings, breadcrumb=""):
     """Navigate through a category."""
+    # Get directories for manifest updates
+    script_dir = Path(__file__).parent.resolve()
+    python_dir = script_dir.parent
+    
     current_breadcrumb = f"{breadcrumb} > {category_name}"
     
     while True:
@@ -501,8 +522,14 @@ def navigate_category(category_name, category_data, settings, breadcrumb=""):
             current_breadcrumb,
             show_back=True,
             show_run_all=True,
-            settings=settings
+            settings=settings,
+            show_generate_manifest=True
         )
+        
+        if selected_key == '__generate_manifest__':
+            update_manifest(script_dir, python_dir)
+            input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
+            continue
         
         if selected_key == '__settings_changed__':
             continue  # Redisplay menu after settings change
@@ -535,6 +562,10 @@ def navigate_category(category_name, category_data, settings, breadcrumb=""):
 
 def navigate_file(file_name, file_data, settings, breadcrumb=""):
     """Navigate through a test file."""
+    # Get directories for manifest updates
+    script_dir = Path(__file__).parent.resolve()
+    python_dir = script_dir.parent
+    
     current_breadcrumb = f"{breadcrumb} > {file_name}"
     file_path = file_data['_path']
     classes = file_data.get('_classes', [])
@@ -555,8 +586,14 @@ def navigate_file(file_name, file_data, settings, breadcrumb=""):
             current_breadcrumb,
             show_back=True,
             show_run_all=True,
-            settings=settings
+            settings=settings,
+            show_generate_manifest=True
         )
+        
+        if selected_key == '__generate_manifest__':
+            update_manifest(script_dir, python_dir)
+            input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
+            continue
         
         if selected_key == '__settings_changed__':
             continue  # Redisplay menu after settings change
@@ -571,6 +608,10 @@ def navigate_file(file_name, file_data, settings, breadcrumb=""):
 
 def navigate_class(class_name, class_data, settings, breadcrumb="", file_path=""):
     """Navigate through a test class."""
+    # Get directories for manifest updates
+    script_dir = Path(__file__).parent.resolve()
+    python_dir = script_dir.parent
+    
     current_breadcrumb = f"{breadcrumb} > {class_name}"
     methods = class_data.get('methods', [])
     
@@ -583,8 +624,14 @@ def navigate_class(class_name, class_data, settings, breadcrumb="", file_path=""
             current_breadcrumb,
             show_back=True,
             show_run_all=True,
-            settings=settings
+            settings=settings,
+            show_generate_manifest=True
         )
+        
+        if selected_key == '__generate_manifest__':
+            update_manifest(script_dir, python_dir)
+            input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
+            continue
         
         if selected_key == '__settings_changed__':
             continue  # Redisplay menu after settings change
@@ -612,6 +659,10 @@ def main():
     hierarchy = build_test_hierarchy()
     print(f"{Colors.GREEN}✓ Test hierarchy built{Colors.ENDC}\n")
     
+    # Get directories for manifest updates
+    script_dir = Path(__file__).parent.resolve()
+    python_dir = script_dir.parent
+    
     while True:
         # Main menu - select test suite
         items = [
@@ -625,11 +676,16 @@ def main():
             "",
             show_back=False,
             show_run_all=False,
-            settings=settings
+            settings=settings,
+            show_generate_manifest=True
         )
         
         if selected_key == '__settings_changed__':
             continue  # Redisplay menu after settings change
+        elif selected_key == '__generate_manifest__':
+            update_manifest(script_dir, python_dir)
+            input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
+            continue
         elif selected_key in ['integration', 'e2e']:
             navigate_suite(selected_key, selected_value, settings)
         else:
