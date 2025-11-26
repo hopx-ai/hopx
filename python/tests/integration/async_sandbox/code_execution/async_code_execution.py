@@ -17,37 +17,13 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
-@pytest.fixture
-async def sandbox(api_key):
-    """Create a sandbox for testing and clean up after."""
-    sandbox = await AsyncSandbox.create(
-        template=TEST_TEMPLATE,
-        api_key=api_key,
-        base_url=BASE_URL,
-    )
-    yield sandbox
-    try:
-        await sandbox.kill()
-    except Exception:
-        pass
-
-
 class TestAsyncCodeExecution:
     """Test async code execution."""
 
     @pytest.mark.asyncio
-    async def test_run_simple_code(self, sandbox):
+    async def test_run_simple_code(self, async_async_sandbox):
         """Test running simple Python code."""
-        result = await sandbox.run_code("print('Hello, World!')")
+        result = await async_async_sandbox.run_code("print('Hello, World!')")
 
         assert result.success is True
         assert "Hello, World!" in result.stdout
@@ -55,18 +31,18 @@ class TestAsyncCodeExecution:
         assert result.execution_time is not None
 
     @pytest.mark.asyncio
-    async def test_run_code_with_error(self, sandbox):
+    async def test_run_code_with_error(self, async_sandbox):
         """Test running code that produces an error."""
-        result = await sandbox.run_code("raise ValueError('Test error')")
+        result = await async_sandbox.run_code("raise ValueError('Test error')")
 
         assert result.success is False
         assert result.exit_code != 0
         assert "ValueError" in result.stderr or "Test error" in result.stderr
 
     @pytest.mark.asyncio
-    async def test_run_code_with_env_vars(self, sandbox):
+    async def test_run_code_with_env_vars(self, async_sandbox):
         """Test code execution with environment variables."""
-        result = await sandbox.run_code(
+        result = await async_sandbox.run_code(
             "import os; print(os.getenv('TEST_VAR'))",
             env={"TEST_VAR": "test_value"},
         )
@@ -75,22 +51,22 @@ class TestAsyncCodeExecution:
         assert "test_value" in result.stdout
 
     @pytest.mark.asyncio
-    async def test_run_code_different_languages(self, sandbox):
+    async def test_run_code_different_languages(self, async_sandbox):
         """Test running code in different languages."""
         # Python (default)
-        result = await sandbox.run_code("print('Python')", language="python")
+        result = await async_sandbox.run_code("print('Python')", language="python")
         assert result.success is True
         assert "Python" in result.stdout
 
         # Bash
-        result = await sandbox.run_code("echo 'Bash'", language="bash")
+        result = await async_sandbox.run_code("echo 'Bash'", language="bash")
         assert result.success is True
         assert "Bash" in result.stdout
 
     @pytest.mark.asyncio
-    async def test_run_code_background(self, sandbox):
+    async def test_run_code_background(self, async_sandbox):
         """Test running code in background."""
-        response = await sandbox.run_code_background(
+        response = await async_sandbox.run_code_background(
             "import time; time.sleep(5); print('Done')",
             timeout=60,
         )
@@ -100,10 +76,10 @@ class TestAsyncCodeExecution:
         assert process_id is not None
 
     @pytest.mark.asyncio
-    async def test_list_processes(self, sandbox):
+    async def test_list_processes(self, async_sandbox):
         """Test listing background processes."""
         # Start a background process
-        response = await sandbox.run_code_background(
+        response = await async_sandbox.run_code_background(
             "import time; time.sleep(10); print('Done')",
             timeout=60,
         )
@@ -112,15 +88,15 @@ class TestAsyncCodeExecution:
         await asyncio.sleep(1)  # Wait a moment for process to start
 
         # List processes
-        processes = await sandbox.list_processes()
+        processes = await async_sandbox.list_processes()
 
         assert isinstance(processes, list)
 
     @pytest.mark.asyncio
-    async def test_kill_process(self, sandbox):
+    async def test_kill_process(self, async_sandbox):
         """Test killing a background process."""
         # Start a long-running background process
-        response = await sandbox.run_code_background(
+        response = await async_sandbox.run_code_background(
             "import time; time.sleep(300); print('Done')",
             timeout=600,
         )
@@ -130,14 +106,14 @@ class TestAsyncCodeExecution:
 
         # Kill the process
         try:
-            result = await sandbox.kill_process(process_id)
+            result = await async_sandbox.kill_process(process_id)
             assert isinstance(result, dict)
         except Exception:
             # Process might have already finished or not exist
             pass
 
     @pytest.mark.asyncio
-    async def test_run_code_stream(self, sandbox):
+    async def test_run_code_stream(self, async_sandbox):
         """Test code execution with streaming output."""
         code = """
 import time
@@ -146,7 +122,7 @@ for i in range(5):
     time.sleep(0.1)
 """
         output_lines = []
-        async for message in sandbox.run_code_stream(code, language="python"):
+        async for message in async_sandbox.run_code_stream(code, language="python"):
             if message.get("type") == "output":
                 output_lines.append(message.get("data", ""))
             elif message.get("type") == "complete":

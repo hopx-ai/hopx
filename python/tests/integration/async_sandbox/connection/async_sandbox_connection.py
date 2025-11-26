@@ -15,40 +15,14 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
-@pytest.fixture
-async def sandbox(api_key):
-    """Create a sandbox for testing and clean up after."""
-    sandbox = await AsyncSandbox.create(
-        template=TEST_TEMPLATE,
-        api_key=api_key,
-        base_url=BASE_URL,
-        timeout_seconds=600,  # 10 minutes
-    )
-    yield sandbox
-    # Cleanup
-    try:
-        await sandbox.kill()
-    except Exception:
-        pass  # Ignore cleanup errors
-
-
 class TestAsyncSandboxConnection:
     """Test async sandbox connection operations."""
 
     @pytest.mark.asyncio
-    async def test_connect_to_existing_sandbox(self, sandbox, api_key):
+    async def test_connect_to_existing_sandbox(self, async_sandbox, api_key):
         """Test connecting to an existing sandbox."""
         # Disconnect and reconnect
-        sandbox_id = sandbox.sandbox_id
+        sandbox_id = async_sandbox.sandbox_id
 
         # Connect to the same sandbox
         reconnected = await AsyncSandbox.connect(
@@ -58,6 +32,11 @@ class TestAsyncSandboxConnection:
         )
 
         assert reconnected.sandbox_id == sandbox_id
+        # Cleanup the reconnected sandbox
+        try:
+            await reconnected.kill()
+        except Exception:
+            pass
         info = await reconnected.get_info()
         assert info.status in ("running", "paused")
 

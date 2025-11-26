@@ -15,32 +15,6 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
-@pytest.fixture
-def sandbox(api_key):
-    """Create a sandbox for testing and clean up after."""
-    sandbox = Sandbox.create(
-        template=TEST_TEMPLATE,
-        api_key=api_key,
-        base_url=BASE_URL,
-        timeout_seconds=600,  # 10 minutes
-    )
-    yield sandbox
-    # Cleanup
-    try:
-        sandbox.kill()
-    except Exception:
-        pass  # Ignore cleanup errors
-
-
 class TestSandboxInfo:
     """Test sandbox info retrieval."""
 

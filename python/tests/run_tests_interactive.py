@@ -2,6 +2,11 @@
 """
 Interactive Test Runner
 Allows hierarchical selection and execution of tests.
+
+Optional dependency: Install 'readchar' for arrow key navigation support:
+    pip install readchar
+
+Without readchar, the script will fall back to number-based selection.
 """
 
 import ast
@@ -11,6 +16,14 @@ import sys
 import hashlib
 from pathlib import Path
 from collections import defaultdict
+
+# Try to import readchar for arrow key support
+try:
+    import readchar  # type: ignore
+    READCHAR_AVAILABLE = True
+except ImportError:
+    READCHAR_AVAILABLE = False
+    readchar = None
 
 # Colors for terminal output
 class Colors:
@@ -113,7 +126,7 @@ def build_test_hierarchy():
     
     return hierarchy
 
-def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False):
+def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False, settings=None):
     """Display a menu and return selected item."""
     clear_screen()
     
@@ -121,58 +134,141 @@ def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False
     print(f"{Colors.HEADER}{Colors.BOLD}{title:^60}{Colors.ENDC}")
     if breadcrumb:
         print(f"{Colors.CYAN}Location: {breadcrumb}{Colors.ENDC}")
+    
+    # Display settings status if provided
+    if settings:
+        verbose_status = f"{Colors.GREEN}● ON{Colors.ENDC}" if settings['verbose'] else f"{Colors.RED}○ OFF{Colors.ENDC}"
+        reports_status = f"{Colors.GREEN}● ON{Colors.ENDC}" if settings['generate_reports'] else f"{Colors.RED}○ OFF{Colors.ENDC}"
+        print(f"{Colors.YELLOW}Settings: Verbose {verbose_status} | Reports {reports_status} | Press 'v' to toggle verbose, 'r' to toggle reports{Colors.ENDC}")
+    
     print(f"{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}\n")
     
-    menu_items = []
-    
-    # Display special options first (using letters)
-    if show_run_all:
-        print(f"{Colors.GREEN}[a] Run All Tests{Colors.ENDC}")
-        menu_items.append(('__run_all__', 'Run All Tests'))
-    
-    if show_back:
-        print(f"{Colors.YELLOW}[b] ← Back{Colors.ENDC}")
-        menu_items.append(('__back__', 'Back'))
-    
-    if show_run_all or show_back:
-        print()
-    
-    # Display items (numbered starting from 1)
-    index = 1
-    for key, value in items:
-        if isinstance(value, dict):
-            if value.get('_type') == 'file':
-                file_name = key
-                classes = value.get('_classes', [])
-                class_count = len(classes)
-                method_count = sum(len(c['methods']) for c in classes)
-                print(f"{Colors.BLUE}[{index}] {file_name}{Colors.ENDC} ({class_count} classes, {method_count} methods)")
-            elif value.get('_type') == 'category':
-                print(f"{Colors.CYAN}[{index}] {key}/ {Colors.ENDC}→")
-            else:
-                print(f"{Colors.CYAN}[{index}] {key}/ {Colors.ENDC}→")
-        else:
-            print(f"{Colors.BLUE}[{index}] {key}{Colors.ENDC}")
-        
-        menu_items.append((key, value))
-        index += 1
-    
-    print(f"\n{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}")
+    # Build menu_items list (same as items, but we need it for indexing)
+    menu_items = list(items)
+    selected_index = 0  # Track currently selected item
     
     # Build help text
     help_parts = []
+    if READCHAR_AVAILABLE:
+        help_parts.append("↑↓ arrows to navigate")
     if show_run_all:
         help_parts.append("'a' for all")
     if show_back:
         help_parts.append("'b' for back")
-    if items:
+    if settings:
+        help_parts.append("'v' for verbose")
+        help_parts.append("'r' for reports")
+    if items and not READCHAR_AVAILABLE:
         help_parts.append(f"1-{len(items)} for items")
+    if READCHAR_AVAILABLE and items:
+        help_parts.append("Enter to select")
     
     help_text = " | ".join(help_parts)
     
+    def redisplay_menu():
+        """Redisplay menu with current selection highlighted."""
+        clear_screen()
+        print(f"{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}")
+        print(f"{Colors.HEADER}{Colors.BOLD}{title:^60}{Colors.ENDC}")
+        if breadcrumb:
+            print(f"{Colors.CYAN}Location: {breadcrumb}{Colors.ENDC}")
+        
+        # Display settings status if provided
+        if settings:
+            verbose_status = f"{Colors.GREEN}● ON{Colors.ENDC}" if settings['verbose'] else f"{Colors.RED}○ OFF{Colors.ENDC}"
+            reports_status = f"{Colors.GREEN}● ON{Colors.ENDC}" if settings['generate_reports'] else f"{Colors.RED}○ OFF{Colors.ENDC}"
+            print(f"{Colors.YELLOW}Settings: Verbose {verbose_status} | Reports {reports_status} | Press 'v' to toggle verbose, 'r' to toggle reports{Colors.ENDC}")
+        
+        print(f"{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}\n")
+        
+        # Display special options first
+        if show_run_all:
+            print(f"{Colors.GREEN}[a] Run All Tests{Colors.ENDC}")
+        
+        if show_back:
+            print(f"{Colors.YELLOW}[b] ← Back{Colors.ENDC}")
+        
+        if show_run_all or show_back:
+            print()
+        
+        # Display items with highlighting
+        index = 1
+        for i, (key, value) in enumerate(items):
+            is_selected = (i == selected_index) and READCHAR_AVAILABLE
+            prefix = f"{Colors.BOLD}{Colors.GREEN}▶ {Colors.ENDC}" if is_selected else "  "
+            
+            if isinstance(value, dict):
+                if value.get('_type') == 'file':
+                    file_name = key
+                    classes = value.get('_classes', [])
+                    class_count = len(classes)
+                    method_count = sum(len(c['methods']) for c in classes)
+                    print(f"{prefix}{Colors.BLUE}[{index}] {file_name}{Colors.ENDC} ({class_count} classes, {method_count} methods)")
+                elif value.get('_type') == 'category':
+                    print(f"{prefix}{Colors.CYAN}[{index}] {key}/ {Colors.ENDC}→")
+                else:
+                    print(f"{prefix}{Colors.CYAN}[{index}] {key}/ {Colors.ENDC}→")
+            else:
+                print(f"{prefix}{Colors.BLUE}[{index}] {key}{Colors.ENDC}")
+            
+            index += 1
+        
+        print(f"\n{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}")
+        print(f"{Colors.CYAN}{help_text}{Colors.ENDC}")
+    
+    # Initial display
+    redisplay_menu()
+    
     while True:
         try:
-            choice = input(f"\n{Colors.BOLD}Select option ({help_text}): {Colors.ENDC}").strip().lower()
+            if READCHAR_AVAILABLE:
+                # Use readchar for arrow key support
+                key = readchar.readkey()
+                
+                # Handle arrow keys
+                if key == readchar.key.UP:
+                    if selected_index > 0:
+                        selected_index -= 1
+                        redisplay_menu()
+                    continue
+                elif key == readchar.key.DOWN:
+                    if selected_index < len(items) - 1:
+                        selected_index += 1
+                        redisplay_menu()
+                    continue
+                elif key == readchar.key.ENTER or key == '\r' or key == '\n':
+                    # Select current item
+                    if items:
+                        return menu_items[selected_index]
+                    continue
+                else:
+                    choice = key.lower()
+            else:
+                # Fallback to input() for systems without readchar
+                choice = input(f"\n{Colors.BOLD}Select option ({help_text}): {Colors.ENDC}").strip().lower()
+            
+            # Handle settings toggles
+            if settings:
+                if choice == 'v':
+                    settings['verbose'] = not settings['verbose']
+                    verbose_status = f"{Colors.GREEN}● ON{Colors.ENDC}" if settings['verbose'] else f"{Colors.RED}○ OFF{Colors.ENDC}"
+                    if READCHAR_AVAILABLE:
+                        redisplay_menu()
+                        continue
+                    else:
+                        print(f"{Colors.CYAN}✓ Verbose: {verbose_status}{Colors.ENDC}")
+                        input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
+                        return ('__settings_changed__', None)
+                elif choice == 'r':
+                    settings['generate_reports'] = not settings['generate_reports']
+                    reports_status = f"{Colors.GREEN}● ON{Colors.ENDC}" if settings['generate_reports'] else f"{Colors.RED}○ OFF{Colors.ENDC}"
+                    if READCHAR_AVAILABLE:
+                        redisplay_menu()
+                        continue
+                    else:
+                        print(f"{Colors.CYAN}✓ Reports: {reports_status}{Colors.ENDC}")
+                        input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
+                        return ('__settings_changed__', None)
             
             # Handle special options
             if choice == 'a' and show_run_all:
@@ -180,17 +276,20 @@ def display_menu(items, title, breadcrumb="", show_back=True, show_run_all=False
             if choice == 'b' and show_back:
                 return ('__back__', 'Back')
             
-            # Handle numbered options
-            choice_num = int(choice)
-            if 1 <= choice_num <= len(items):
-                return menu_items[len(menu_items) - len(items) + choice_num - 1]
-            else:
-                print(f"{Colors.RED}Invalid option. Please select 1-{len(items)}.{Colors.ENDC}")
-        except ValueError:
-            print(f"{Colors.RED}Invalid input. Please enter a number (1-{len(items)}) or letter (a/b).{Colors.ENDC}")
+            # Handle numbered options (fallback when readchar not available)
+            if not READCHAR_AVAILABLE:
+                try:
+                    choice_num = int(choice)
+                    if 1 <= choice_num <= len(items):
+                        return menu_items[choice_num - 1]
+                    else:
+                        print(f"{Colors.RED}Invalid option. Please select 1-{len(items)}.{Colors.ENDC}")
+                except ValueError:
+                    print(f"{Colors.RED}Invalid input. Please enter a number (1-{len(items)}) or letter (a/b/v/r).{Colors.ENDC}")
         except KeyboardInterrupt:
             print(f"\n{Colors.YELLOW}Exiting...{Colors.ENDC}")
             sys.exit(0)
+
 
 def update_manifest(script_dir, python_dir):
     """
@@ -291,8 +390,13 @@ def get_pytest_command(test_path, test_name="", verbose=True, generate_reports=T
     
     return cmd
 
-def run_tests(test_path, test_name="", verbose=True, generate_reports=True):
+def run_tests(test_path, test_name="", settings=None):
     """Run tests and display results."""
+    if settings is None:
+        settings = {'verbose': True, 'generate_reports': False}
+    
+    verbose = settings['verbose']
+    generate_reports = settings['generate_reports']
     # Get the python/ directory (parent of tests/)
     script_dir = Path(__file__).parent.resolve()
     python_dir = script_dir.parent
@@ -336,7 +440,7 @@ def run_tests(test_path, test_name="", verbose=True, generate_reports=True):
         input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
         return False
 
-def navigate_suite(suite_name, suite_data, breadcrumb=""):
+def navigate_suite(suite_name, suite_data, settings, breadcrumb=""):
     """Navigate through a test suite."""
     current_breadcrumb = f"{breadcrumb} > {suite_name}" if breadcrumb else suite_name
     
@@ -348,10 +452,13 @@ def navigate_suite(suite_name, suite_data, breadcrumb=""):
             f"Test Suite: {suite_name.upper()}",
             current_breadcrumb,
             show_back=bool(breadcrumb),
-            show_run_all=True
+            show_run_all=True,
+            settings=settings
         )
         
-        if selected_key == '__back__':
+        if selected_key == '__settings_changed__':
+            continue  # Redisplay menu after settings change
+        elif selected_key == '__back__':
             return
         elif selected_key == '__run_all__':
             # Run all tests in suite
@@ -369,19 +476,19 @@ def navigate_suite(suite_name, suite_data, breadcrumb=""):
             
             collect_paths(suite_data)
             if test_paths:
-                run_tests(' '.join(test_paths), f"All {suite_name} tests")
+                run_tests(' '.join(test_paths), f"All {suite_name} tests", settings)
             continue
         
         # Navigate deeper
         if isinstance(selected_value, dict):
             if selected_value.get('_type') == 'file':
-                navigate_file(selected_key, selected_value, current_breadcrumb)
+                navigate_file(selected_key, selected_value, settings, current_breadcrumb)
             elif selected_value.get('_type') == 'category':
-                navigate_category(selected_key, selected_value, current_breadcrumb)
+                navigate_category(selected_key, selected_value, settings, current_breadcrumb)
             else:
-                navigate_category(selected_key, selected_value, current_breadcrumb)
+                navigate_category(selected_key, selected_value, settings, current_breadcrumb)
 
-def navigate_category(category_name, category_data, breadcrumb=""):
+def navigate_category(category_name, category_data, settings, breadcrumb=""):
     """Navigate through a category."""
     current_breadcrumb = f"{breadcrumb} > {category_name}"
     
@@ -393,10 +500,13 @@ def navigate_category(category_name, category_data, breadcrumb=""):
             f"Category: {category_name}",
             current_breadcrumb,
             show_back=True,
-            show_run_all=True
+            show_run_all=True,
+            settings=settings
         )
         
-        if selected_key == '__back__':
+        if selected_key == '__settings_changed__':
+            continue  # Redisplay menu after settings change
+        elif selected_key == '__back__':
             return
         elif selected_key == '__run_all__':
             # Run all tests in category
@@ -414,16 +524,16 @@ def navigate_category(category_name, category_data, breadcrumb=""):
             
             collect_paths(category_data)
             if test_paths:
-                run_tests(' '.join(test_paths), f"All {category_name} tests")
+                run_tests(' '.join(test_paths), f"All {category_name} tests", settings)
             continue
         
         if isinstance(selected_value, dict):
             if selected_value.get('_type') == 'file':
-                navigate_file(selected_key, selected_value, current_breadcrumb)
+                navigate_file(selected_key, selected_value, settings, current_breadcrumb)
             else:
-                navigate_category(selected_key, selected_value, current_breadcrumb)
+                navigate_category(selected_key, selected_value, settings, current_breadcrumb)
 
-def navigate_file(file_name, file_data, breadcrumb=""):
+def navigate_file(file_name, file_data, settings, breadcrumb=""):
     """Navigate through a test file."""
     current_breadcrumb = f"{breadcrumb} > {file_name}"
     file_path = file_data['_path']
@@ -436,7 +546,7 @@ def navigate_file(file_name, file_data, breadcrumb=""):
         
         if not items:
             # No classes, just run the file
-            run_tests(file_path, file_name)
+            run_tests(file_path, file_name, settings)
             return
         
         selected_key, selected_value = display_menu(
@@ -444,19 +554,22 @@ def navigate_file(file_name, file_data, breadcrumb=""):
             f"Test File: {file_name}",
             current_breadcrumb,
             show_back=True,
-            show_run_all=True
+            show_run_all=True,
+            settings=settings
         )
         
-        if selected_key == '__back__':
+        if selected_key == '__settings_changed__':
+            continue  # Redisplay menu after settings change
+        elif selected_key == '__back__':
             return
         elif selected_key == '__run_all__':
-            run_tests(file_path, file_name)
+            run_tests(file_path, file_name, settings)
             continue
         
         # Navigate to class methods
-        navigate_class(selected_key, selected_value, current_breadcrumb, file_path)
+        navigate_class(selected_key, selected_value, settings, current_breadcrumb, file_path)
 
-def navigate_class(class_name, class_data, breadcrumb="", file_path=""):
+def navigate_class(class_name, class_data, settings, breadcrumb="", file_path=""):
     """Navigate through a test class."""
     current_breadcrumb = f"{breadcrumb} > {class_name}"
     methods = class_data.get('methods', [])
@@ -469,23 +582,32 @@ def navigate_class(class_name, class_data, breadcrumb="", file_path=""):
             f"Test Class: {class_name}",
             current_breadcrumb,
             show_back=True,
-            show_run_all=True
+            show_run_all=True,
+            settings=settings
         )
         
-        if selected_key == '__back__':
+        if selected_key == '__settings_changed__':
+            continue  # Redisplay menu after settings change
+        elif selected_key == '__back__':
             return
         elif selected_key == '__run_all__':
             # Run entire class
             test_path = f"{file_path}::{class_name}"
-            run_tests(test_path, f"{class_name}")
+            run_tests(test_path, f"{class_name}", settings)
             continue
         
         # Run individual method
         test_path = f"{file_path}::{class_name}::{selected_key}"
-        run_tests(test_path, f"{class_name}::{selected_key}")
+        run_tests(test_path, f"{class_name}::{selected_key}", settings)
 
 def main():
     """Main interactive test runner."""
+    # Initialize settings with defaults
+    settings = {
+        'verbose': True,
+        'generate_reports': False
+    }
+    
     print(f"{Colors.CYAN}Building test hierarchy...{Colors.ENDC}")
     hierarchy = build_test_hierarchy()
     print(f"{Colors.GREEN}✓ Test hierarchy built{Colors.ENDC}\n")
@@ -502,11 +624,14 @@ def main():
             "Select Test Suite",
             "",
             show_back=False,
-            show_run_all=False
+            show_run_all=False,
+            settings=settings
         )
         
-        if selected_key in ['integration', 'e2e']:
-            navigate_suite(selected_key, selected_value)
+        if selected_key == '__settings_changed__':
+            continue  # Redisplay menu after settings change
+        elif selected_key in ['integration', 'e2e']:
+            navigate_suite(selected_key, selected_value, settings)
         else:
             break
 

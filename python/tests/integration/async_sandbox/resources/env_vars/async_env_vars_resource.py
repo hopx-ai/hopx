@@ -17,94 +17,70 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
-@pytest.fixture
-async def sandbox(api_key):
-    """Create a sandbox for testing and clean up after."""
-    sandbox = await AsyncSandbox.create(
-        template=TEST_TEMPLATE,
-        api_key=api_key,
-        base_url=BASE_URL,
-    )
-    yield sandbox
-    try:
-        await sandbox.kill()
-    except Exception:
-        pass
-
-
 class TestAsyncEnvironmentVariables:
     """Test async environment variable operations."""
 
     @pytest.mark.asyncio
-    async def test_get_all_env_vars(self, sandbox):
+    async def test_get_all_env_vars(self, async_sandbox):
         """Test getting all environment variables."""
-        env_vars = await sandbox.env.get_all()
+        env_vars = await async_sandbox.env.get_all()
 
         assert isinstance(env_vars, dict)
         # Should have at least some system env vars
         assert len(env_vars) > 0
 
     @pytest.mark.asyncio
-    async def test_set_all_env_vars(self, sandbox):
+    async def test_set_all_env_vars(self, async_sandbox):
         """Test setting all environment variables."""
         new_vars = {
             "VAR1": "value1",
             "VAR2": "value2",
         }
 
-        result = await sandbox.env.set_all(new_vars)
+        result = await async_sandbox.env.set_all(new_vars)
 
         assert isinstance(result, dict)
         assert result.get("VAR1") == "value1"
         assert result.get("VAR2") == "value2"
 
     @pytest.mark.asyncio
-    async def test_update_env_vars(self, sandbox):
+    async def test_update_env_vars(self, async_sandbox):
         """Test updating specific environment variables."""
         # Set initial vars
-        await sandbox.env.set_all({"VAR1": "initial", "VAR2": "initial2"})
+        await async_sandbox.env.set_all({"VAR1": "initial", "VAR2": "initial2"})
 
         # Update one var
-        await sandbox.env.update({"VAR1": "updated"})
+        await async_sandbox.env.update({"VAR1": "updated"})
 
         # Verify update
-        env_vars = await sandbox.env.get_all()
+        env_vars = await async_sandbox.env.get_all()
         assert env_vars.get("VAR1") == "updated"
         assert env_vars.get("VAR2") == "initial2"  # Should be preserved
 
     @pytest.mark.asyncio
-    async def test_delete_env_var(self, sandbox):
+    async def test_delete_env_var(self, async_sandbox):
         """Test deleting an environment variable."""
         # Set a var
-        await sandbox.env.set("TEST_DELETE", "value")
+        await async_sandbox.env.set("TEST_DELETE", "value")
 
         # Verify it exists
-        assert await sandbox.env.get("TEST_DELETE") == "value"
+        assert await async_sandbox.env.get("TEST_DELETE") == "value"
 
         # Delete it
-        await sandbox.env.delete("TEST_DELETE")
+        await async_sandbox.env.delete("TEST_DELETE")
 
         # Verify it's gone
-        assert await sandbox.env.get("TEST_DELETE") is None
+        assert await async_sandbox.env.get("TEST_DELETE") is None
 
     @pytest.mark.asyncio
-    async def test_get_single_env_var(self, sandbox):
+    async def test_get_single_env_var(self, async_sandbox):
         """Test getting a single environment variable."""
-        await sandbox.env.set("TEST_GET", "test_value")
+        await async_sandbox.env.set("TEST_GET", "test_value")
 
-        value = await sandbox.env.get("TEST_GET")
+        value = await async_sandbox.env.get("TEST_GET")
         assert value == "test_value"
 
         # Test with default
-        value = await sandbox.env.get("NONEXISTENT", default="default_value")
+        value = await async_sandbox.env.get("NONEXISTENT", default="default_value")
         assert value == "default_value"
 

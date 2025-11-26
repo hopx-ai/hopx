@@ -1,6 +1,54 @@
 {
-  "generated": "2025-11-26T19:54:37.582750",
-  "total_reports": 0,
+  "generated": "2025-11-27T03:00:06.849380",
+  "total_reports": 6,
   "reports": [
+    {
+      "name": "testasyncsandboxcreation_test_create_without_internet",
+      "path": "testasyncsandboxcreation_test_create_without_internet/report.html",
+      "directory": "testasyncsandboxcreation_test_create_without_internet",
+      "size": 32294,
+      "date": "2025-11-27T03:00:06.739202",
+      "has_junit": true
+    },
+    {
+      "name": "testasyncsandboxcreation_test_create_with_timeout",
+      "path": "testasyncsandboxcreation_test_create_with_timeout/report.html",
+      "directory": "testasyncsandboxcreation_test_create_with_timeout",
+      "size": 32282,
+      "date": "2025-11-27T02:59:58.846533",
+      "has_junit": true
+    },
+    {
+      "name": "testasyncsandboxcreation_test_create_with_env_vars",
+      "path": "testasyncsandboxcreation_test_create_with_env_vars/report.html",
+      "directory": "testasyncsandboxcreation_test_create_with_env_vars",
+      "size": 32285,
+      "date": "2025-11-27T02:59:53.736257",
+      "has_junit": true
+    },
+    {
+      "name": "testasyncsandboxcreation_test_create_with_context_manager",
+      "path": "testasyncsandboxcreation_test_create_with_context_manager/report.html",
+      "directory": "testasyncsandboxcreation_test_create_with_context_manager",
+      "size": 33330,
+      "date": "2025-11-27T02:59:43.662836",
+      "has_junit": true
+    },
+    {
+      "name": "testasyncsandboxcreation_test_create_invalid_template",
+      "path": "testasyncsandboxcreation_test_create_invalid_template/report.html",
+      "directory": "testasyncsandboxcreation_test_create_invalid_template",
+      "size": 39363,
+      "date": "2025-11-27T02:59:09.362009",
+      "has_junit": true
+    },
+    {
+      "name": "testasyncsandboxcreation_test_create_from_template_name",
+      "path": "testasyncsandboxcreation_test_create_from_template_name/report.html",
+      "directory": "testasyncsandboxcreation_test_create_from_template_name",
+      "size": 32300,
+      "date": "2025-11-27T02:58:37.053636",
+      "has_junit": true
+    }
   ]
 }

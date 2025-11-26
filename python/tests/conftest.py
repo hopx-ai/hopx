@@ -7,9 +7,10 @@ integration and E2E tests.
 
 import os
 import pytest
+import pytest_asyncio
 import time
 from pathlib import Path
-from hopx_ai import Sandbox
+from hopx_ai import Sandbox, AsyncSandbox
 
 # Load .env file if it exists (for test environment variables)
 try:
@@ -86,6 +87,96 @@ def sandbox_factory(api_key, test_base_url, test_template):
         return Sandbox.create(**defaults)
     
     return _create_sandbox
+
+
+@pytest.fixture
+def sandbox(api_key, test_base_url, test_template):
+    """
+    Create a standard sandbox for testing and clean up after.
+    
+    This fixture creates a sandbox with default settings and automatically
+    cleans it up after the test completes.
+    """
+    sandbox = Sandbox.create(
+        template=test_template,
+        api_key=api_key,
+        base_url=test_base_url,
+        timeout_seconds=600,  # 10 minutes
+    )
+    yield sandbox
+    try:
+        sandbox.kill()
+    except Exception:
+        pass  # Ignore cleanup errors
+
+
+@pytest_asyncio.fixture
+async def async_sandbox(api_key, test_base_url, test_template):
+    """
+    Create a standard async sandbox for testing and clean up after.
+    
+    This fixture creates an async sandbox with default settings and automatically
+    cleans it up after the test completes.
+    """
+    sandbox = await AsyncSandbox.create(
+        template=test_template,
+        api_key=api_key,
+        base_url=test_base_url,
+        timeout_seconds=600,  # 10 minutes
+    )
+    yield sandbox
+    try:
+        await sandbox.kill()
+    except Exception:
+        pass  # Ignore cleanup errors
+
+
+@pytest.fixture
+def cleanup_sandbox():
+    """
+    Fixture to ensure sandbox cleanup after test for manually created sandboxes.
+    
+    Use this fixture when you need to create sandboxes with custom parameters
+    in your test. Append any sandbox you create to the returned list, and
+    they will be automatically cleaned up after the test.
+    
+    Example:
+        def test_custom_sandbox(api_key, cleanup_sandbox):
+            sandbox = Sandbox.create(template="custom", api_key=api_key)
+            cleanup_sandbox.append(sandbox)
+            # ... test code ...
+    """
+    sandboxes_to_cleanup = []
+    yield sandboxes_to_cleanup
+    for sandbox in sandboxes_to_cleanup:
+        try:
+            sandbox.kill()
+        except Exception:
+            pass  # Ignore cleanup errors
+
+
+@pytest_asyncio.fixture
+async def cleanup_async_sandbox():
+    """
+    Fixture to ensure async sandbox cleanup after test for manually created sandboxes.
+    
+    Use this fixture when you need to create async sandboxes with custom parameters
+    in your test. Append any sandbox you create to the returned list, and
+    they will be automatically cleaned up after the test.
+    
+    Example:
+        async def test_custom_sandbox(api_key, cleanup_async_sandbox):
+            sandbox = await AsyncSandbox.create(template="custom", api_key=api_key)
+            cleanup_async_sandbox.append(sandbox)
+            # ... test code ...
+    """
+    sandboxes_to_cleanup = []
+    yield sandboxes_to_cleanup
+    for sandbox in sandboxes_to_cleanup:
+        try:
+            await sandbox.kill()
+        except Exception:
+            pass  # Ignore cleanup errors
 
 
 @pytest.fixture(autouse=True)

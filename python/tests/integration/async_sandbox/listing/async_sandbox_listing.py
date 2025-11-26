@@ -14,15 +14,6 @@ from hopx_ai import AsyncSandbox
 BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
 class TestAsyncSandboxListing:
     """Test async sandbox listing operations."""
 

@@ -17,15 +17,6 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
 class TestTemplateOperations:
     """Test template-related operations."""
 

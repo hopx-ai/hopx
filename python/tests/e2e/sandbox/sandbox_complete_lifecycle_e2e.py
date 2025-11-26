@@ -18,76 +18,56 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
-def test_complete_sandbox_lifecycle(api_key):
+def test_complete_sandbox_lifecycle(api_key, cleanup_sandbox):
     """Test complete sandbox lifecycle from creation to destruction."""
-    sandbox = None
+    # 1. Create sandbox
+    sandbox = Sandbox.create(
+        template=TEST_TEMPLATE,
+        api_key=api_key,
+        base_url=BASE_URL,
+        timeout_seconds=600,
+        env_vars={"E2E_TEST": "true"},
+    )
+    cleanup_sandbox.append(sandbox)
 
-    try:
-        # 1. Create sandbox
-        sandbox = Sandbox.create(
-            template=TEST_TEMPLATE,
-            api_key=api_key,
-            base_url=BASE_URL,
-            timeout_seconds=600,
-            env_vars={"E2E_TEST": "true"},
-        )
+    assert sandbox.sandbox_id is not None
 
-        assert sandbox.sandbox_id is not None
+    # 2. Get sandbox info
+    info = sandbox.get_info()
+    assert info.status in ("running", "creating")
+    assert info.public_host is not None
 
-        # 2. Get sandbox info
-        info = sandbox.get_info()
-        assert info.status in ("running", "creating")
-        assert info.public_host is not None
+    # 3. Execute code
+    result = sandbox.run_code("print('Hello from E2E test')")
+    assert result.success is True
+    assert "Hello from E2E test" in result.stdout
 
-        # 3. Execute code
-        result = sandbox.run_code("print('Hello from E2E test')")
-        assert result.success is True
-        assert "Hello from E2E test" in result.stdout
+    # 4. Create and read files
+    test_content = "E2E test file content"
+    sandbox.files.write("/workspace/e2e_test.txt", test_content)
+    read_content = sandbox.files.read("/workspace/e2e_test.txt")
+    assert read_content == test_content
 
-        # 4. Create and read files
-        test_content = "E2E test file content"
-        sandbox.files.write("/workspace/e2e_test.txt", test_content)
-        read_content = sandbox.files.read("/workspace/e2e_test.txt")
-        assert read_content == test_content
+    # 5. Set and verify environment variables
+    sandbox.env.set("E2E_VAR", "e2e_value")
+    value = sandbox.env.get("E2E_VAR")
+    assert value == "e2e_value"
 
-        # 5. Set and verify environment variables
-        sandbox.env.set("E2E_VAR", "e2e_value")
-        value = sandbox.env.get("E2E_VAR")
-        assert value == "e2e_value"
+    # 6. Run commands
+    cmd_result = sandbox.commands.run("echo 'Command executed'")
+    assert cmd_result.success is True
+    assert "Command executed" in cmd_result.stdout
 
-        # 6. Run commands
-        cmd_result = sandbox.commands.run("echo 'Command executed'")
-        assert cmd_result.success is True
-        assert "Command executed" in cmd_result.stdout
+    # 7. Get metrics
+    metrics = sandbox.get_metrics_snapshot()
+    assert isinstance(metrics, dict)
 
-        # 7. Get metrics
-        metrics = sandbox.get_metrics_snapshot()
-        assert isinstance(metrics, dict)
+    # 8. Cleanup (kill sandbox)
+    sandbox.kill()
 
-        # 8. Cleanup (kill sandbox)
-        sandbox.kill()
-
-        # Verify sandbox is destroyed
-        # Note: This might fail if sandbox takes time to be destroyed
-        # In a real scenario, you might want to poll for status
-
-    except Exception as e:
-        # Ensure cleanup even on error
-        if sandbox:
-            try:
-                sandbox.kill()
-            except Exception:
-                pass
-        raise
+    # Verify sandbox is destroyed
+    # Note: This might fail if sandbox takes time to be destroyed
+    # In a real scenario, you might want to poll for status
 
 
 def test_sandbox_context_manager(api_key):

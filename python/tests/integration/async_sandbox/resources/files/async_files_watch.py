@@ -14,41 +14,17 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
-@pytest.fixture
-async def sandbox(api_key):
-    """Create a sandbox for testing and clean up after."""
-    sandbox = await AsyncSandbox.create(
-        template=TEST_TEMPLATE,
-        api_key=api_key,
-        base_url=BASE_URL,
-    )
-    yield sandbox
-    try:
-        await sandbox.kill()
-    except Exception:
-        pass
-
-
 class TestAsyncFilesWatch:
     """Test async filesystem watching operations."""
 
     @pytest.mark.asyncio
-    async def test_watch_file_creation(self, sandbox):
+    async def test_watch_file_creation(self, async_sandbox):
         """Test watching for file creation events."""
         # Start watching
         events = []
         
         async def collect_events():
-            async for event in sandbox.files.watch("/workspace"):
+            async for event in async_sandbox.files.watch("/workspace"):
                 events.append(event)
                 # Stop after collecting a few events
                 if len(events) >= 3:
@@ -60,7 +36,7 @@ class TestAsyncFilesWatch:
         await asyncio.sleep(1)
         
         # Create a file to trigger event
-        await sandbox.files.write("/workspace/watched_file.txt", "test content")
+        await async_sandbox.files.write("/workspace/watched_file.txt", "test content")
         
         # Wait for events
         await asyncio.sleep(2)

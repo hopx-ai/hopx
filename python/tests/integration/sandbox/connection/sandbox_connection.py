@@ -15,32 +15,6 @@ BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 TEST_TEMPLATE = os.getenv("HOPX_TEST_TEMPLATE", "code-interpreter")
 
 
-@pytest.fixture
-def api_key():
-    """Get API key from environment."""
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
-
-
-@pytest.fixture
-def sandbox(api_key):
-    """Create a sandbox for testing and clean up after."""
-    sandbox = Sandbox.create(
-        template=TEST_TEMPLATE,
-        api_key=api_key,
-        base_url=BASE_URL,
-        timeout_seconds=600,  # 10 minutes
-    )
-    yield sandbox
-    # Cleanup
-    try:
-        sandbox.kill()
-    except Exception:
-        pass  # Ignore cleanup errors
-
-
 class TestSandboxConnection:
     """Test sandbox connection operations."""
 
@@ -59,6 +33,11 @@ class TestSandboxConnection:
         assert reconnected.sandbox_id == sandbox_id
         info = reconnected.get_info()
         assert info.status in ("running", "paused")
+        # Cleanup the reconnected sandbox
+        try:
+            reconnected.kill()
+        except Exception:
+            pass
 
     def test_connect_to_nonexistent_sandbox(self, api_key):
         """Test connecting to non-existent sandbox raises error."""

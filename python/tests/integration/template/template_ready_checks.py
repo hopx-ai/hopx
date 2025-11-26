@@ -44,24 +44,6 @@ except ImportError:
 BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
 
 
-@pytest.fixture
-def api_key():
-    """
-    Pytest fixture providing API key for authentication.
-    
-    Retrieves the HOPX_API_KEY from environment variables. If not set,
-    the test will be skipped.
-    
-    Returns:
-        str: The API key for authenticating with the HOPX API
-        
-    Raises:
-        pytest.skip: If HOPX_API_KEY is not set in environment
-    """
-    key = os.getenv("HOPX_API_KEY")
-    if not key:
-        pytest.skip("HOPX_API_KEY environment variable not set")
-    return key
 
 
 @pytest.fixture
