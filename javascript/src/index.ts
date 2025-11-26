@@ -49,11 +49,12 @@ export {
   ServerError,
   SandboxExpiredError,
   TokenExpiredError,
+  TemplateBuildError,
   ErrorCode,
 } from './errors.js';
 
-// Re-export SandboxErrorMetadata type
-export type { SandboxErrorMetadata } from './errors.js';
+// Re-export metadata types
+export type { SandboxErrorMetadata, TemplateBuildErrorMetadata } from './errors.js';
 
 // Default export
 export { Sandbox as default } from './sandbox.js';

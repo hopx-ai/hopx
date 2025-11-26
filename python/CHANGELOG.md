@@ -5,6 +5,51 @@ All notable changes to the Hopx Python SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2025-11-26
+
+### Added
+
+**TemplateBuildError Class**
+
+Added structured error type for template build failures, matching JavaScript SDK:
+
+- `TemplateBuildError` - Exception with build metadata for debugging
+- `TemplateBuildErrorMetadata` - Dataclass with `build_id`, `template_id`, `build_status`, `logs_url`, `error_details`
+- Build failures now throw `TemplateBuildError` instead of generic `Exception`
+- Error includes `request_id` for correlation with Hopx support
+
+**Example**:
+```python
+from hopx_ai import TemplateBuildError
+
+try:
+    result = await Template.build(template, options)
+except TemplateBuildError as e:
+    print(f"Build {e.build_id} failed: {e.build_status}")
+    print(f"Logs: {e.logs_url}")
+    print(f"Details: {e.error_details}")
+```
+
+### Already Correct
+
+**Template Activation Features (No Changes Needed)**
+
+Python SDK already had these features that JavaScript v0.3.7 added:
+
+1. **Conservative `is_active` default**: Python defaults to `False` (line 555 of build_flow.py)
+2. **`files_hash` mapping**: Already in `UploadLinkResponse` (line 204 of types.py)
+3. **`request_id` support**: Already in `BuildResponse`, `BuildStatusResponse`, `LogsResponse`
+4. **Status change logging**: Already implemented via `on_log` callback
+5. **Improved timeout messages**: Already includes template ID and last status
+
+**Files Modified**:
+- `hopx_ai/errors.py` - Added `TemplateBuildError`, `TemplateBuildErrorMetadata`
+- `hopx_ai/template/build_flow.py` - Use `TemplateBuildError` instead of `Exception`
+- `hopx_ai/__init__.py` - Export new error types, version 0.3.7
+- `pyproject.toml` - Version 0.3.7
+
+---
+
 ## [0.3.6] - 2025-11-26
 
 ### Not Affected

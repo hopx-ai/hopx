@@ -22,6 +22,7 @@ from .types import (
 )
 from .file_hasher import FileHasher
 from .tar_creator import TarCreator
+from ..errors import TemplateBuildError, TemplateBuildErrorMetadata
 
 
 DEFAULT_BASE_URL = "https://api.hopx.dev"
@@ -132,13 +133,21 @@ async def build_template(template, options: BuildOptions) -> BuildResult:
         except Exception:
             pass  # If we can't get logs, use error_message
 
-        raise Exception(
+        raise TemplateBuildError(
             f"Template build failed.\n"
             f"Build ID: {build_response.build_id}\n"
             f"Template ID: {build_response.template_id}\n"
             f"Status: {final_status.status}\n"
             f"Error: {error_details}\n"
-            f"Check logs at: {build_response.logs_url}"
+            f"Check logs at: {build_response.logs_url}",
+            metadata=TemplateBuildErrorMetadata(
+                build_id=build_response.build_id,
+                template_id=build_response.template_id,
+                build_status=final_status.status,
+                logs_url=build_response.logs_url,
+                error_details=error_details,
+            ),
+            request_id=final_status.request_id,
         )
     
     # Step 6: Wait for template status to become "active"

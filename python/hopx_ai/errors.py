@@ -27,6 +27,9 @@ __all__ = [
     "SandboxExpiredError",
     "TokenExpiredError",
     "SandboxErrorMetadata",
+    # Template errors
+    "TemplateBuildError",
+    "TemplateBuildErrorMetadata",
 ]
 
 
@@ -303,4 +306,45 @@ class TokenExpiredError(AuthenticationError):
         kwargs.setdefault('code', 'token_expired')
         kwargs.setdefault('status_code', 401)
         super().__init__(message, **kwargs)
+
+
+# =============================================================================
+# TEMPLATE BUILD ERRORS
+# =============================================================================
+
+@dataclass
+class TemplateBuildErrorMetadata:
+    """Metadata about template build state when an error occurs."""
+    build_id: Optional[str] = None
+    template_id: Optional[str] = None
+    build_status: Optional[str] = None
+    logs_url: Optional[str] = None
+    error_details: Optional[str] = None
+
+
+class TemplateBuildError(HopxError):
+    """Template build failed."""
+
+    def __init__(
+        self,
+        message: str = "Template build failed",
+        metadata: Optional[TemplateBuildErrorMetadata] = None,
+        **kwargs
+    ):
+        kwargs.setdefault('code', 'template_build_failed')
+        super().__init__(message, **kwargs)
+        self.metadata = metadata or TemplateBuildErrorMetadata()
+        self.build_id = self.metadata.build_id
+        self.template_id = self.metadata.template_id
+        self.build_status = self.metadata.build_status
+        self.logs_url = self.metadata.logs_url
+        self.error_details = self.metadata.error_details
+
+    def __str__(self) -> str:
+        msg = super().__str__()
+        if self.build_id:
+            msg += f" (build_id: {self.build_id})"
+        if self.logs_url:
+            msg += f"\nLogs: {self.logs_url}"
+        return msg
 

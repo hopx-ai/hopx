@@ -5,6 +5,66 @@ All notable changes to the Hopx JavaScript/TypeScript SDK will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2025-11-26
+
+### Fixed
+
+**Template Activation Stability: Conservative `is_active` Default**
+- Fixed `is_active` defaulting to `true` when API returns `undefined` or `null`
+- **Impact**: SDK could prematurely return from `Template.build()` before template was ready, causing `ServerError` when creating sandboxes
+- **Resolution**: Changed default from `true` to `false` (conservative approach, matching Python SDK behavior)
+- **Files Modified**: `src/template/build-flow.ts` (line 632)
+
+**Template Build Error Context**
+- Build failures now throw `TemplateBuildError` with comprehensive debugging information
+- Error includes: build ID, template ID, build status, logs URL, and extracted error details from build logs
+- **Previous**: Generic error message: `Build failed: Unknown error`
+- **Now**: Rich error with structured metadata for debugging and HopX bug reports
+- **Files Modified**: `src/template/build-flow.ts` (lines 103-143), `src/errors.ts` (new `TemplateBuildError` class)
+
+**Missing `filesHash` Mapping in Upload Response**
+- Fixed `filesHash` field not being mapped from API response in `getUploadLink()`
+- **Impact**: File hash was lost during upload flow, preventing proper cache validation
+- **Files Modified**: `src/template/build-flow.ts` (line 240)
+
+### Added
+
+**Template Status Change Tracking**
+- Template activation now logs all status transitions for debugging
+- Log format: `Template status: {status} (is_active: {value})`
+- **Benefit**: Provides visibility into template lifecycle (building → publishing → active)
+- **Files Modified**: `src/template/build-flow.ts` (lines 635-644)
+
+**Request ID Support for Template Operations**
+- Added `requestId` field to `BuildResponse` and `BuildStatusResponse` types
+- Request IDs are now captured from API responses for debugging
+- Included in `TemplateBuildError` for correlation with HopX support requests
+- **Files Modified**: `src/template/types.ts`, `src/template/build-flow.ts`
+
+**Improved Timeout Error Messages**
+- Timeout errors now include template ID and last known status
+- **Previous**: `Template did not become stable within N minutes...`
+- **Now**: `Template {id} did not become active within N minutes. Last status: {status}...`
+- **Files Modified**: `src/template/build-flow.ts` (lines 712-716)
+
+### New Error Types
+
+**TemplateBuildError**
+- New error class for template build failures
+- Properties: `buildId`, `templateId`, `buildStatus`, `logsUrl`, `errorDetails`, `metadata`
+- Exported from main SDK entry point for error handling
+- **Files Added**: `src/errors.ts` (lines 197-230)
+
+### Testing
+
+**Build Reproduction Test**
+- Added `examples/test-build-reproduction.ts` for reproducing and capturing evidence of build failures
+- Captures: all build logs, timestamps, error details, environment info
+- Saves evidence to `test-evidence/` directory for bug reports
+- Run with: `npx tsx examples/test-build-reproduction.ts`
+
+---
+
 ## [0.3.6] - 2025-11-26
 
 ### Fixed

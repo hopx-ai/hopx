@@ -39,6 +39,9 @@ export enum ErrorCode {
   SANDBOX_STOPPED = 'SANDBOX_STOPPED',
   TOKEN_EXPIRED = 'TOKEN_EXPIRED',
   TOKEN_INVALID = 'TOKEN_INVALID',
+
+  // Template errors
+  TEMPLATE_BUILD_FAILED = 'TEMPLATE_BUILD_FAILED',
 }
 
 export class HopxError extends Error {
@@ -188,6 +191,41 @@ export class TokenExpiredError extends HopxError {
   constructor(message = 'JWT token has expired', requestId?: string) {
     super(message, ErrorCode.TOKEN_EXPIRED, requestId, 401);
     this.name = 'TokenExpiredError';
+  }
+}
+
+/**
+ * Metadata about template build state when an error occurs
+ */
+export interface TemplateBuildErrorMetadata {
+  buildId?: string;
+  templateId?: string;
+  buildStatus?: string;
+  logsUrl?: string;
+  errorDetails?: string;
+}
+
+/**
+ * Error thrown when template build fails
+ * Provides comprehensive context for debugging build failures
+ */
+export class TemplateBuildError extends HopxError {
+  public readonly buildId?: string;
+  public readonly templateId?: string;
+  public readonly buildStatus?: string;
+  public readonly logsUrl?: string;
+  public readonly errorDetails?: string;
+  public readonly metadata: TemplateBuildErrorMetadata;
+
+  constructor(message: string, metadata: TemplateBuildErrorMetadata, requestId?: string) {
+    super(message, ErrorCode.TEMPLATE_BUILD_FAILED, requestId);
+    this.name = 'TemplateBuildError';
+    this.buildId = metadata.buildId;
+    this.templateId = metadata.templateId;
+    this.buildStatus = metadata.buildStatus;
+    this.logsUrl = metadata.logsUrl;
+    this.errorDetails = metadata.errorDetails;
+    this.metadata = metadata;
   }
 }
 

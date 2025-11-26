@@ -187,6 +187,7 @@ export interface BuildResponse {
   templateID: string;
   status: string;
   logsUrl: string;
+  requestId?: string;  // API request ID for debugging
 }
 
 export interface BuildStatusResponse {
@@ -199,6 +200,7 @@ export interface BuildStatusResponse {
   completedAt?: string;
   errorMessage?: string;
   buildDurationMs?: number;
+  requestId?: string;  // API request ID for debugging
 }
 
 export interface LogsResponse {
