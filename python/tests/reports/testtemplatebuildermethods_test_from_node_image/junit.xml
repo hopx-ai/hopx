@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.021" timestamp="2025-11-26T18:22:32.604193+04:00" hostname="MacBookPro"><testcase classname="tests.integration.template.template_builder_methods.TestTemplateBuilderMethods" name="test_from_node_image" time="0.002" /></testsuite></testsuites>

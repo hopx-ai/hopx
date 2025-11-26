@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Reports Index</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            padding: 20px;
+            color: #333;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            max-width: 100%;
+            margin: 0 auto;
+            height: calc(100vh - 40px);
+        }
+
+        .container {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .reports-section {
+            margin-top: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            grid-auto-rows: 1fr;
+        }
+
+        .report-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            min-height: 100%;
+        }
+
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            border-color: #667eea;
+        }
+
+        .report-card .name {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+
+        .report-card .path {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .report-card .meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .report-card .link {
+            display: inline-block;
+            margin-top: auto;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 0.9em;
+            transition: background 0.3s ease;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .report-card .link:hover {
+            background: #5568d3;
+        }
+
+        .reports-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .reports-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .reports-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .reports-table th.action {
+            text-align: center;
+            width: 100px;
+        }
+
+        .reports-table tbody tr {
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .reports-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .reports-table tbody tr.active {
+            background: #e8ecff;
+            border-left: 4px solid #667eea;
+        }
+
+        .reports-table td {
+            padding: 15px;
+            vertical-align: middle;
+        }
+
+        .reports-table td.name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1em;
+        }
+
+        .reports-table td.path {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .reports-table td.date {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .reports-table td.size {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .reports-table td.action {
+            text-align: center;
+        }
+
+        .action-btn {
+            display: inline-block;
+            padding: 6px 16px;
+            background: #667eea;
+            color: white;
+            border-radius: 5px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: #5568d3;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state h2 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 50px;
+            font-size: 1em;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+
+        .error {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        /* Side Panel for Report Preview */
+        .side-panel {
+            width: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            transition: width 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .side-panel.open {
+            width: 50%;
+            min-width: 600px;
+        }
+
+        .side-panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .side-panel-header h2 {
+            font-size: 1.5em;
+            margin: 0;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .side-panel-content {
+            flex: 1;
+            overflow: auto;
+            padding: 0;
+        }
+
+        .side-panel iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .report-card.active {
+            border-color: #667eea;
+            background: #e8ecff;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-layout">
+        <div class="container">
+            <div class="header">
+                <h1>📊 Test Reports Index</h1>
+                <p>Automatically detected test reports</p>
+            </div>
+            <div class="content">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Scanning for test reports...</p>
+            </div>
+            <div id="stats" class="stats" style="display: none;"></div>
+            <div id="reports" class="reports-section" style="display: none;"></div>
+            <div id="error" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Side Panel for Report Preview -->
+        <div class="side-panel" id="sidePanel">
+            <div class="side-panel-header">
+                <h2 id="sidePanelTitle">Report Preview</h2>
+                <button class="close-btn" onclick="closeSidePanel()">✕ Close</button>
+            </div>
+            <div class="side-panel-content">
+                <iframe id="reportFrame" src="about:blank"></iframe>
+            </div>
+        </div>
+    </div>
+    <button class="refresh-btn" onclick="scanReports()" title="Refresh reports list">🔄 Refresh</button>
+
+    <!-- Load manifest data (works with file:// protocol) -->
+    <script src="./manifest.js"></script>
+    <script>
+        // Function to get all directories and check for report.html files
+        async function scanReports() {
+            const loadingEl = document.getElementById('loading');
+            const reportsEl = document.getElementById('reports');
+            const statsEl = document.getElementById('stats');
+            const errorEl = document.getElementById('error');
+            
+            loadingEl.style.display = 'block';
+            reportsEl.style.display = 'none';
+            statsEl.style.display = 'none';
+            errorEl.style.display = 'none';
+
+            try {
+                // Load reports from manifest.json (auto-generated by generate_manifest.py)
+                const reports = await discoverReports();
+                
+                loadingEl.style.display = 'none';
+                
+                if (reports.length === 0) {
+                    reportsEl.innerHTML = `
+                        <div class="empty-state">
+                            <h2>No reports found</h2>
+                            <p>No test report HTML files were detected in subdirectories.</p>
+                            <p style="margin-top: 10px; font-size: 0.9em; color: #888;">
+                                Run <code>python3 tests/reports/generate_manifest.py</code> to scan for reports.
+                            </p>
+                            <p style="margin-top: 10px; font-size: 0.9em; color: #888;">
+                                Reports are typically located in: <code>reports/[test-name]/report.html</code>
+                            </p>
+                        </div>
+                    `;
+                    reportsEl.style.display = 'block';
+                    return;
+                }
+
+                // Display stats
+                displayStats(reports);
+                
+                // Display reports
+                displayReports(reports);
+                
+                statsEl.style.display = 'grid';
+                reportsEl.style.display = 'block';
+                
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                console.error('Error in scanReports:', error);
+                errorEl.innerHTML = `
+                    <div class="error">
+                        <strong>Error scanning reports:</strong> ${error.message}
+                        <br><br>
+                        <strong>Note:</strong> Make sure manifest.json exists. 
+                        Run <code>python3 tests/reports/generate_manifest.py</code> to generate it.
+                        <br><br>
+                        <strong>Debug info:</strong> Check browser console (F12) for more details.
+                        <br><br>
+                        <strong>Tip:</strong> If opening via file:// protocol, try serving via a local web server:
+                        <code>python3 -m http.server 8000</code> from the reports directory.
+                    </div>
+                `;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        // Discover reports by reading manifest.json
+        async function discoverReports() {
+            // Method 1: Check if manifest.js was loaded (works with file:// protocol)
+            if (typeof window.TEST_REPORTS_MANIFEST !== 'undefined') {
+                const manifest = window.TEST_REPORTS_MANIFEST;
+                console.log('Loaded manifest from manifest.js:', manifest);
+                if (manifest.reports && manifest.reports.length > 0) {
+                    console.log(`Found ${manifest.reports.length} reports`);
+                    return manifest.reports;
+                }
+            }
+            
+            // Method 2: Try multiple methods to load manifest.json (works with both file:// and http://)
+            const methods = [
+                // Fetch API (works with HTTP/HTTPS)
+                async () => {
+                    const response = await fetch('./manifest.json');
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    throw new Error(`HTTP ${response.status}`);
+                },
+                // XMLHttpRequest (works better with file://)
+                async () => {
+                    return new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', './manifest.json', true);
+                        xhr.onload = () => {
+                            if (xhr.status === 200 || xhr.status === 0) {
+                                try {
+                                    resolve(JSON.parse(xhr.responseText));
+                                } catch (e) {
+                                    reject(new Error('Failed to parse manifest.json'));
+                                }
+                            } else {
+                                reject(new Error(`HTTP ${xhr.status}`));
+                            }
+                        };
+                        xhr.onerror = () => reject(new Error('Network error'));
+                        xhr.send();
+                    });
+                }
+            ];
+            
+            // Try each method in sequence
+            for (const method of methods) {
+                try {
+                    const manifest = await method();
+                    console.log('Loaded manifest:', manifest);
+                    if (manifest.reports && manifest.reports.length > 0) {
+                        console.log(`Found ${manifest.reports.length} reports`);
+                        return manifest.reports;
+                    } else {
+                        console.warn('Manifest has no reports');
+                        return [];
+                    }
+                } catch (e) {
+                    console.warn(`Method failed: ${e.message}, trying next...`);
+                    continue;
+                }
+            }
+            
+            // All methods failed, try fallback
+            console.warn('All manifest loading methods failed, attempting fallback discovery...');
+            return await discoverReportsFallback();
+        }
+
+        // Fallback: Try to discover reports by attempting to fetch from common patterns
+        // This works when the page is served via HTTP/HTTPS (not file://)
+        async function discoverReportsFallback() {
+            const reports = [];
+            
+            // Try to read manifest.json using XMLHttpRequest (works better with file://)
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', './manifest.json', false); // Synchronous for file:// protocol
+                xhr.send(null);
+                
+                if (xhr.status === 200 || xhr.status === 0) { // 0 for file:// protocol
+                    const manifest = JSON.parse(xhr.responseText);
+                    console.log('Loaded manifest via XHR:', manifest);
+                    if (manifest.reports && manifest.reports.length > 0) {
+                        return manifest.reports;
+                    }
+                }
+            } catch (e) {
+                console.warn('XHR fallback also failed:', e);
+            }
+            
+            // Last resort: try common patterns
+            const commonPatterns = [
+                'testtemplatebuildermethods_test_from_node_image',
+            ];
+            
+            for (const pattern of commonPatterns) {
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('HEAD', `./${pattern}/report.html`, false);
+                    xhr.send(null);
+                    
+                    if (xhr.status === 200 || xhr.status === 0) {
+                        reports.push({
+                            name: pattern,
+                            path: `${pattern}/report.html`,
+                            directory: pattern,
+                            date: new Date().toISOString(),
+                            size: 0
+                        });
+                    }
+                } catch (e) {
+                    // Report doesn't exist at this path
+                }
+            }
+            
+            return reports;
+        }
+
+        // Display statistics
+        function displayStats(reports) {
+            const statsEl = document.getElementById('stats');
+            const totalReports = reports.length;
+            const totalSize = reports.reduce((sum, r) => sum + (r.size || 0), 0);
+            const formatSize = (bytes) => {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            };
+            
+            statsEl.innerHTML = `
+                <div class="stat-card">
+                    <div class="number">${totalReports}</div>
+                    <div class="label">Total Reports</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${formatSize(totalSize)}</div>
+                    <div class="label">Total Size</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${new Date().toLocaleDateString()}</div>
+                    <div class="label">Last Updated</div>
+                </div>
+            `;
+        }
+
+        // Display reports in a grid
+        function displayReports(reports) {
+            const reportsEl = document.getElementById('reports');
+            const formatDate = (dateStr) => {
+                if (!dateStr) return 'Unknown';
+                const date = new Date(dateStr);
+                return date.toLocaleString();
+            };
+            
+            const formatName = (path) => {
+                // Extract a readable name from the path
+                const parts = path.split('/');
+                const dirName = parts[parts.length - 2] || parts[parts.length - 1];
+                return dirName
+                    .replace(/_/g, ' ')
+                    .replace(/test/g, '')
+                    .replace(/\b\w/g, l => l.toUpperCase())
+                    .trim() || path;
+            };
+            
+            if (reports.length === 0) {
+                reportsEl.innerHTML = `
+                    <div class="empty-state">
+                        <h2>No reports found</h2>
+                        <p>No test report HTML files were detected.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Ensure reports are sorted by date (newest first)
+            const sortedReports = [...reports].sort((a, b) => {
+                const dateA = new Date(a.date || 0);
+                const dateB = new Date(b.date || 0);
+                return dateB - dateA; // Newest first
+            });
+            
+            reportsEl.innerHTML = `
+                <h2 class="section-title">Test Reports (${sortedReports.length})</h2>
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Path</th>
+                            <th>Date</th>
+                            <th>Size</th>
+                            <th class="action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedReports.map((report, index) => `
+                            <tr onclick="showReport('${report.path}', '${formatName(report.path).replace(/'/g, "\\'")}', this)">
+                                <td class="name">${formatName(report.path)}</td>
+                                <td class="path">${report.path}</td>
+                                <td class="date">${formatDate(report.date)}</td>
+                                <td class="size">${report.size ? formatSize(report.size) : 'N/A'}</td>
+                                <td class="action">
+                                    <span class="action-btn" onclick="event.stopPropagation(); showReport('${report.path}', '${formatName(report.path).replace(/'/g, "\\'")}', this.closest('tr'))">View</span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Show report in side panel
+        function showReport(path, title, rowElement) {
+            const sidePanel = document.getElementById('sidePanel');
+            const reportFrame = document.getElementById('reportFrame');
+            const sidePanelTitle = document.getElementById('sidePanelTitle');
+            
+            // Remove active class from all rows
+            document.querySelectorAll('.reports-table tbody tr').forEach(row => {
+                row.classList.remove('active');
+            });
+            
+            // Add active class to clicked row
+            if (rowElement) {
+                rowElement.classList.add('active');
+            }
+            
+            // Update side panel
+            sidePanelTitle.textContent = title;
+            reportFrame.src = path;
+            sidePanel.classList.add('open');
+        }
+
+        // Close side panel
+        function closeSidePanel() {
+            const sidePanel = document.getElementById('sidePanel');
+            sidePanel.classList.remove('open');
+            
+            // Remove active class from all cards
+            document.querySelectorAll('.report-card').forEach(card => {
+                card.classList.remove('active');
+            });
+        }
+
+        // Helper function
+        function formatSize(bytes) {
+            if (!bytes) return 'Unknown';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Auto-scan on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            scanReports();
+        });
+    </script>
+</body>
+</html>
+

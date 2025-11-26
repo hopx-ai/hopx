@@ -271,6 +271,18 @@ def run_tests(test_path, test_name="", verbose=True, generate_reports=True):
             print(f"{Colors.RED}✗ Tests failed (exit code: {result.returncode}){Colors.ENDC}")
         print(f"{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}\n")
         
+        # Auto-generate manifest.json for index.html
+        if generate_reports:
+            try:
+                manifest_script = script_dir / 'reports' / 'generate_manifest.py'
+                if manifest_script.exists():
+                    subprocess.run([sys.executable, str(manifest_script)], 
+                                 cwd=python_dir, 
+                                 capture_output=True,
+                                 check=False)
+            except Exception:
+                pass  # Silently fail if manifest generation doesn't work
+        
         input(f"{Colors.YELLOW}Press Enter to continue...{Colors.ENDC}")
         return result.returncode == 0
     except KeyboardInterrupt:
@@ -283,7 +295,8 @@ def navigate_suite(suite_name, suite_data, breadcrumb=""):
     current_breadcrumb = f"{breadcrumb} > {suite_name}" if breadcrumb else suite_name
     
     while True:
-        items = list(suite_data.items())
+        # Filter out internal metadata keys (starting with _)
+        items = [(k, v) for k, v in suite_data.items() if not k.startswith('_')]
         selected_key, selected_value = display_menu(
             items,
             f"Test Suite: {suite_name.upper()}",
@@ -299,6 +312,9 @@ def navigate_suite(suite_name, suite_data, breadcrumb=""):
             test_paths = []
             def collect_paths(data, prefix=""):
                 for key, value in data.items():
+                    # Skip internal metadata keys
+                    if key.startswith('_'):
+                        continue
                     if isinstance(value, dict):
                         if value.get('_type') == 'file':
                             test_paths.append(value['_path'])
@@ -324,7 +340,8 @@ def navigate_category(category_name, category_data, breadcrumb=""):
     current_breadcrumb = f"{breadcrumb} > {category_name}"
     
     while True:
-        items = list(category_data.items())
+        # Filter out internal metadata keys (starting with _)
+        items = [(k, v) for k, v in category_data.items() if not k.startswith('_')]
         selected_key, selected_value = display_menu(
             items,
             f"Category: {category_name}",
@@ -340,6 +357,9 @@ def navigate_category(category_name, category_data, breadcrumb=""):
             test_paths = []
             def collect_paths(data):
                 for key, value in data.items():
+                    # Skip internal metadata keys
+                    if key.startswith('_'):
+                        continue
                     if isinstance(value, dict):
                         if value.get('_type') == 'file':
                             test_paths.append(value['_path'])
