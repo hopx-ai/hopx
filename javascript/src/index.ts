@@ -49,11 +49,17 @@ export {
   ServerError,
   SandboxExpiredError,
   TokenExpiredError,
+  TemplateBuildError,
+  // New error classes (v0.3.8)
+  ValidationError,
+  NetworkError,
+  TimeoutError,
+  TemplateNotFoundError,
   ErrorCode,
 } from './errors.js';
 
-// Re-export SandboxErrorMetadata type
-export type { SandboxErrorMetadata } from './errors.js';
+// Re-export metadata types
+export type { SandboxErrorMetadata, TemplateBuildErrorMetadata } from './errors.js';
 
 // Default export
 export { Sandbox as default } from './sandbox.js';

@@ -5,6 +5,7 @@
 import { Template } from './builder.js';
 import { FileHasher } from './file-hasher.js';
 import { TarCreator, TarResult } from './tar-creator.js';
+import { TemplateBuildError } from '../errors.js';
 import { 
   BuildOptions, 
   BuildResult, 
@@ -100,7 +101,45 @@ export async function buildTemplate(template: Template, options: BuildOptions): 
   const finalStatus = await pollStatus(buildResponse.buildID, baseURL, options);
   
   if (finalStatus.status !== 'active' && finalStatus.status !== 'success') {
-    throw new Error(`Build failed: ${finalStatus.errorMessage || 'Unknown error'}`);
+    // Get more error details from logs if available
+    let errorDetails = finalStatus.errorMessage || 'Unknown error';
+
+    try {
+      const logsResponse = await getLogs(buildResponse.templateID, options.apiKey, 0, baseURL);
+      if (logsResponse && logsResponse.logs) {
+        // Find error messages in logs
+        const errorLines = logsResponse.logs
+          .split('\n')
+          .filter((line: string) =>
+            line.includes('ERROR') ||
+            line.toLowerCase().includes('failed') ||
+            line.includes('exit status')
+          );
+        if (errorLines.length > 0) {
+          // Use last 3 error lines for context
+          errorDetails = errorLines.slice(-3).join('\n');
+        }
+      }
+    } catch {
+      // If we can't get logs, use the original error message
+    }
+
+    throw new TemplateBuildError(
+      `Template build failed.\n` +
+      `Build ID: ${buildResponse.buildID}\n` +
+      `Template ID: ${buildResponse.templateID}\n` +
+      `Status: ${finalStatus.status}\n` +
+      `Error: ${errorDetails}\n` +
+      `Check logs at: ${buildResponse.logsUrl}`,
+      {
+        buildId: buildResponse.buildID,
+        templateId: buildResponse.templateID,
+        buildStatus: finalStatus.status,
+        logsUrl: buildResponse.logsUrl,
+        errorDetails,
+      },
+      finalStatus.requestId
+    );
   }
   
   // Step 6: Wait for template to be published (background job: publishing → active)
@@ -237,6 +276,7 @@ async function getUploadLink(
     present: data.present,
     uploadUrl: data.upload_url,
     expiresAt: data.expires_at,
+    filesHash: data.files_hash,  // Map files_hash field for cache verification
   };
 }
 
@@ -406,13 +446,14 @@ async function triggerBuild(
   }
   
   const data = await response.json() as any;
-  
+
   // API returns snake_case
   return {
     buildID: String(data.build_id),  // Ensure string (API returns string, but enforce it)
     templateID: String(data.template_id),  // Ensure string
     status: data.status,
     logsUrl: data.logs_url,
+    requestId: data.request_id,  // Map request_id for debugging
   };
 }
 
@@ -527,6 +568,7 @@ async function pollStatus(
     completedAt: data.completed_at,
     errorMessage: data.error_message,
     buildDurationMs: data.build_duration_ms,
+    requestId: data.request_id,  // Map request_id for debugging
   };
     
     // Status can be: building, active (success), failed
@@ -614,6 +656,7 @@ async function waitForTemplateActive(
 
   const startTime = Date.now();
   let consecutiveActiveCount = 0;
+  let lastStatus: string | null = null;  // Track status changes for debugging (matches Python SDK)
   const requiredConsecutive = 2;  // KEY: Require 2 consecutive "active" checks
   const pollInterval = 3000;      // Poll every 3 seconds
 
@@ -628,8 +671,20 @@ async function waitForTemplateActive(
 
       if (response.ok) {
         const data = await response.json() as any;
-        const status = data.status || '';
-        const isActive = data.is_active !== false; // Default to true if not specified
+        const status = data.status || 'unknown';
+        const isActive = data.is_active === true; // Default to FALSE if not specified (conservative, matches Python SDK)
+
+        // Log status changes for debugging (matches Python SDK behavior)
+        if (status !== lastStatus) {
+          if (options.onLog) {
+            options.onLog({
+              message: `Template status: ${status} (is_active: ${isActive})`,
+              timestamp: new Date().toISOString(),
+              level: 'info'
+            });
+          }
+          lastStatus = status;
+        }
 
         if (status === 'active' && isActive) {
           consecutiveActiveCount++;
@@ -698,8 +753,9 @@ async function waitForTemplateActive(
   // Timeout - throw error instead of warning
   const timeoutMinutes = Math.round(maxWait / 60000);
   throw new Error(
-    `Template did not become stable within ${timeoutMinutes} minutes. ` +
-    `Template may still be publishing. Try creating a sandbox in a few minutes.`
+    `Template ${templateID} did not become active within ${timeoutMinutes} minutes. ` +
+    `Last status: ${lastStatus || 'unknown'}. ` +
+    `This may indicate an API issue or the template is still processing.`
   );
 }
 

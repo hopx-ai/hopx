@@ -27,12 +27,17 @@ __all__ = [
     "SandboxExpiredError",
     "TokenExpiredError",
     "SandboxErrorMetadata",
+    # Template errors
+    "TemplateBuildError",
+    "TemplateBuildErrorMetadata",
+    "TemplateNotFoundError",
 ]
 
 
 @dataclass
 class SandboxErrorMetadata:
     """Metadata about sandbox state when an error occurs."""
+
     sandbox_id: Optional[str] = None
     created_at: Optional[str] = None
     expires_at: Optional[str] = None
@@ -42,7 +47,7 @@ class SandboxErrorMetadata:
 
 class HopxError(Exception):
     """Base exception for all HOPX.AI SDK errors."""
-    
+
     def __init__(
         self,
         message: str,
@@ -58,7 +63,7 @@ class HopxError(Exception):
         self.request_id = request_id
         self.status_code = status_code
         self.details = details or {}
-    
+
     def __str__(self) -> str:
         parts = [self.message]
         if self.code:
@@ -66,62 +71,46 @@ class HopxError(Exception):
         if self.request_id:
             parts.append(f"[request_id: {self.request_id}]")
         return " ".join(parts)
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.message!r}, code={self.code!r})"
 
 
 class APIError(HopxError):
     """API request failed."""
-    
-    def __init__(
-        self,
-        message: str,
-        *,
-        status_code: Optional[int] = None,
-        **kwargs
-    ):
+
+    def __init__(self, message: str, *, status_code: Optional[int] = None, **kwargs):
         super().__init__(message, **kwargs)
         self.status_code = status_code
 
 
 class AuthenticationError(APIError):
     """Authentication failed (401)."""
+
     pass
 
 
 class NotFoundError(APIError):
     """Resource not found (404)."""
+
     pass
 
 
 class ValidationError(APIError):
     """Request validation failed (400)."""
-    
-    def __init__(
-        self,
-        message: str,
-        *,
-        field: Optional[str] = None,
-        **kwargs
-    ):
+
+    def __init__(self, message: str, *, field: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         self.field = field
 
 
 class RateLimitError(APIError):
     """Rate limit exceeded (429)."""
-    
-    def __init__(
-        self,
-        message: str,
-        *,
-        retry_after: Optional[int] = None,
-        **kwargs
-    ):
+
+    def __init__(self, message: str, *, retry_after: Optional[int] = None, **kwargs):
         super().__init__(message, **kwargs)
         self.retry_after = retry_after
-    
+
     def __str__(self) -> str:
         msg = super().__str__()
         if self.retry_after:
@@ -131,7 +120,7 @@ class RateLimitError(APIError):
 
 class ResourceLimitError(APIError):
     """Resource limit exceeded."""
-    
+
     def __init__(
         self,
         message: str,
@@ -140,14 +129,14 @@ class ResourceLimitError(APIError):
         current: Optional[int] = None,
         available: Optional[int] = None,
         upgrade_url: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, **kwargs)
         self.limit = limit
         self.current = current
         self.available = available
         self.upgrade_url = upgrade_url
-    
+
     def __str__(self) -> str:
         msg = super().__str__()
         if self.limit and self.current:
@@ -159,16 +148,19 @@ class ResourceLimitError(APIError):
 
 class ServerError(APIError):
     """Server error (5xx)."""
+
     pass
 
 
 class NetworkError(HopxError):
     """Network communication failed."""
+
     pass
 
 
 class TimeoutError(NetworkError):
     """Request timed out."""
+
     pass
 
 
@@ -176,47 +168,55 @@ class TimeoutError(NetworkError):
 # AGENT OPERATION ERRORS
 # =============================================================================
 
+
 class AgentError(HopxError):
     """Base error for agent operations."""
+
     pass
 
 
 class FileNotFoundError(AgentError):
     """File or directory not found in sandbox."""
-    
+
     def __init__(self, message: str = "File not found", path: Optional[str] = None, **kwargs):
         # Use provided code or default
-        kwargs.setdefault('code', 'file_not_found')
+        kwargs.setdefault("code", "file_not_found")
         super().__init__(message, **kwargs)
         self.path = path
 
 
 class FileOperationError(AgentError):
     """File operation failed."""
-    
-    def __init__(self, message: str = "File operation failed", operation: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self, message: str = "File operation failed", operation: Optional[str] = None, **kwargs
+    ):
         # Use provided code or default
-        kwargs.setdefault('code', 'file_operation_failed')
+        kwargs.setdefault("code", "file_operation_failed")
         super().__init__(message, **kwargs)
         self.operation = operation
 
 
 class CodeExecutionError(AgentError):
     """Code execution failed."""
-    
-    def __init__(self, message: str = "Code execution failed", language: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self, message: str = "Code execution failed", language: Optional[str] = None, **kwargs
+    ):
         # Use provided code or default
-        kwargs.setdefault('code', 'code_execution_failed')
+        kwargs.setdefault("code", "code_execution_failed")
         super().__init__(message, **kwargs)
         self.language = language
 
 
 class CommandExecutionError(AgentError):
     """Command execution failed."""
-    
-    def __init__(self, message: str = "Command execution failed", command: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self, message: str = "Command execution failed", command: Optional[str] = None, **kwargs
+    ):
         # Use provided code or default
-        kwargs.setdefault('code', 'command_execution_failed')
+        kwargs.setdefault("code", "command_execution_failed")
         super().__init__(message, **kwargs)
         self.command = command
 
@@ -228,10 +228,10 @@ class DesktopNotAvailableError(AgentError):
         self,
         message: str = "Desktop automation not available",
         missing_dependencies: Optional[List[str]] = None,
-        **kwargs
+        **kwargs,
     ):
         # Use provided code or default
-        kwargs.setdefault('code', 'desktop_not_available')
+        kwargs.setdefault("code", "desktop_not_available")
         super().__init__(message, **kwargs)
         self.missing_dependencies = missing_dependencies or []
         self.docs_url = "https://docs.hopx.ai/desktop-automation"
@@ -249,7 +249,7 @@ class DesktopNotAvailableError(AgentError):
                 "xclip",
                 "imagemagick",
                 "ffmpeg",
-                "tesseract-ocr"
+                "tesseract-ocr",
             ]
             return f"apt-get update && apt-get install -y {' '.join(deps)}"
 
@@ -261,7 +261,7 @@ class DesktopNotAvailableError(AgentError):
             msg += f"\n\nMissing dependencies: {', '.join(self.missing_dependencies)}"
         msg += f"\n\nDocumentation: {self.docs_url}"
         if self.install_command:
-            msg += f"\n\nTo enable desktop automation, add to your Dockerfile:"
+            msg += "\n\nTo enable desktop automation, add to your Dockerfile:"
             msg += f"\nRUN {self.install_command}"
         return msg
 
@@ -270,6 +270,7 @@ class DesktopNotAvailableError(AgentError):
 # SANDBOX LIFECYCLE ERRORS
 # =============================================================================
 
+
 class SandboxExpiredError(HopxError):
     """Sandbox has expired and is no longer available."""
 
@@ -277,10 +278,10 @@ class SandboxExpiredError(HopxError):
         self,
         message: str = "Sandbox has expired",
         metadata: Optional[SandboxErrorMetadata] = None,
-        **kwargs
+        **kwargs,
     ):
-        kwargs.setdefault('code', 'sandbox_expired')
-        kwargs.setdefault('status_code', 410)
+        kwargs.setdefault("code", "sandbox_expired")
+        kwargs.setdefault("status_code", 410)
         super().__init__(message, **kwargs)
         self.metadata = metadata or SandboxErrorMetadata()
         self.sandbox_id = self.metadata.sandbox_id
@@ -300,7 +301,80 @@ class TokenExpiredError(AuthenticationError):
     """JWT token has expired."""
 
     def __init__(self, message: str = "JWT token has expired", **kwargs):
-        kwargs.setdefault('code', 'token_expired')
-        kwargs.setdefault('status_code', 401)
+        kwargs.setdefault("code", "token_expired")
+        kwargs.setdefault("status_code", 401)
         super().__init__(message, **kwargs)
 
+
+# =============================================================================
+# TEMPLATE BUILD ERRORS
+# =============================================================================
+
+
+@dataclass
+class TemplateBuildErrorMetadata:
+    """Metadata about template build state when an error occurs."""
+
+    build_id: Optional[str] = None
+    template_id: Optional[str] = None
+    build_status: Optional[str] = None
+    logs_url: Optional[str] = None
+    error_details: Optional[str] = None
+
+
+class TemplateBuildError(HopxError):
+    """Template build failed."""
+
+    def __init__(
+        self,
+        message: str = "Template build failed",
+        metadata: Optional[TemplateBuildErrorMetadata] = None,
+        **kwargs,
+    ):
+        kwargs.setdefault("code", "template_build_failed")
+        super().__init__(message, **kwargs)
+        self.metadata = metadata or TemplateBuildErrorMetadata()
+        self.build_id = self.metadata.build_id
+        self.template_id = self.metadata.template_id
+        self.build_status = self.metadata.build_status
+        self.logs_url = self.metadata.logs_url
+        self.error_details = self.metadata.error_details
+
+    def __str__(self) -> str:
+        msg = super().__str__()
+        if self.build_id:
+            msg += f" (build_id: {self.build_id})"
+        if self.logs_url:
+            msg += f"\nLogs: {self.logs_url}"
+        return msg
+
+
+class TemplateNotFoundError(NotFoundError):
+    """Template not found with fuzzy-matched suggestions."""
+
+    def __init__(
+        self, template_name: str, available_templates: Optional[List[str]] = None, **kwargs
+    ):
+        self.template_name = template_name
+        self.available_templates = available_templates or []
+        self.suggested_template = self._fuzzy_match()
+
+        message = f"Template '{template_name}' not found"
+        if self.suggested_template:
+            message += f". Did you mean '{self.suggested_template}'?"
+        elif self.available_templates:
+            templates_str = ", ".join(self.available_templates[:5])
+            message += f". Available templates: {templates_str}"
+
+        kwargs.setdefault("code", "template_not_found")
+        super().__init__(message, **kwargs)
+
+    def _fuzzy_match(self) -> Optional[str]:
+        """Find closest matching template name using fuzzy matching."""
+        if not self.available_templates:
+            return None
+
+        from difflib import get_close_matches
+
+        matches = get_close_matches(self.template_name, self.available_templates, n=1, cutoff=0.6)
+        return matches[0] if matches else None

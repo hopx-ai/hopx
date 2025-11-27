@@ -48,6 +48,8 @@ console.log(result.stdout);  // "Hello, Hopx!"
 await sandbox.kill();
 ```
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hopx-ai/hopx)
+
 ## ✨ Features
 
 - ⚡ **Fast** - Sandbox creation in ~100ms

@@ -15,7 +15,7 @@ def build_sandbox_create_payload(
     region: Optional[str],
     timeout_seconds: Optional[int],
     internet_access: Optional[bool],
-    env_vars: Optional[Dict[str, str]]
+    env_vars: Optional[Dict[str, str]],
 ) -> Dict[str, Any]:
     """
     Build payload for POST /v1/sandboxes (sandbox creation).
@@ -54,31 +54,32 @@ def build_sandbox_create_payload(
     if template_id:
         # Create from template ID (resources auto-loaded from template)
         # Convert template_id to string if it's an int (API may return int from build)
-        return remove_none_values({
-            "template_id": str(template_id),
-            "region": region,
-            "timeout_seconds": timeout_seconds,
-            "internet_access": internet_access,
-            "env_vars": env_vars,
-        })
+        return remove_none_values(
+            {
+                "template_id": str(template_id),
+                "region": region,
+                "timeout_seconds": timeout_seconds,
+                "internet_access": internet_access,
+                "env_vars": env_vars,
+            }
+        )
     elif template:
         # Create from template name (resources auto-loaded from template)
-        return remove_none_values({
-            "template_name": template,
-            "region": region,
-            "timeout_seconds": timeout_seconds,
-            "internet_access": internet_access,
-            "env_vars": env_vars,
-        })
+        return remove_none_values(
+            {
+                "template_name": template,
+                "region": region,
+                "timeout_seconds": timeout_seconds,
+                "internet_access": internet_access,
+                "env_vars": env_vars,
+            }
+        )
     else:
         raise ValueError("Either 'template' or 'template_id' must be provided")
 
 
 def build_list_sandboxes_params(
-    status: Optional[str],
-    region: Optional[str],
-    limit: int = 100,
-    cursor: Optional[str] = None
+    status: Optional[str], region: Optional[str], limit: int = 100, cursor: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Build query parameters for GET /v1/sandboxes (list sandboxes).
@@ -103,19 +104,18 @@ def build_list_sandboxes_params(
         >>> params["limit"]
         50
     """
-    params = remove_none_values({
-        "status": status,
-        "region": region,
-        "limit": limit,
-        "cursor": cursor,
-    })
+    params = remove_none_values(
+        {
+            "status": status,
+            "region": region,
+            "limit": limit,
+            "cursor": cursor,
+        }
+    )
     return params
 
 
-def build_list_templates_params(
-    category: Optional[str],
-    language: Optional[str]
-) -> Dict[str, Any]:
+def build_list_templates_params(category: Optional[str], language: Optional[str]) -> Dict[str, Any]:
     """
     Build query parameters for GET /v1/templates (list templates).
 
@@ -134,10 +134,12 @@ def build_list_templates_params(
         >>> params["category"]
         'development'
     """
-    return remove_none_values({
-        "category": category,
-        "language": language,
-    })
+    return remove_none_values(
+        {
+            "category": category,
+            "language": language,
+        }
+    )
 
 
 def build_set_timeout_payload(seconds: int) -> Dict[str, Any]:

@@ -5,6 +5,151 @@ All notable changes to the Hopx JavaScript/TypeScript SDK will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2025-11-27
+
+### 🎯 Python SDK Parity Release
+
+This release achieves feature parity with Python SDK v0.3.8, adding missing error classes and fixing critical bugs.
+
+### Fixed
+
+**Critical: JWT Token Race Condition in `Sandbox.create()` (#14)**
+- Fixed race condition where `env.update()` could fail when creating sandboxes with `envVars`
+- **Root Cause**: `getInfo()` catches token errors and continues, potentially leaving `agentClient` without a valid token
+- **Impact**: Environment variables passed to `Sandbox.create({ envVars: {...} })` could fail to propagate
+- **Resolution**: Explicitly call `ensureValidToken()` before `env.update()` when envVars are provided
+- **Files Modified**: `src/sandbox.ts` (lines 156-159)
+
+**Breaking Change: `Sandbox.list()` Return Type (#9)**
+- Changed return type from `SandboxInfo[]` to `Sandbox[]`
+- **Impact**: Returns usable Sandbox instances instead of plain info objects
+- **Benefit**: Listed sandboxes can be used directly for operations (`runCode()`, `files.read()`, etc.)
+- **Migration**: No code changes required for common patterns; type annotations may need updating
+- **Files Modified**: `src/sandbox.ts` (lines 285-338)
+
+**WebSocket Empty Message Crash (#31 parity)**
+- Added empty message protection to WebSocket client
+- Skips empty or whitespace-only messages instead of crashing
+- Logs warning for invalid JSON messages and continues
+- **Files Modified**: `src/ws-client.ts` (lines 55-105)
+
+**Null Filtering in List Responses**
+- Added null filtering in `files.list()` response processing
+- Prevents crashes when API returns null entries in file lists
+- **Files Modified**: `src/resources/files.ts` (lines 68-75)
+
+### Added
+
+**New Error Classes (Python SDK Parity)**
+
+Four new error classes for comprehensive error handling:
+
+- **`ValidationError`**: Thrown when request validation fails (HTTP 400)
+- **`NetworkError`**: Thrown for network failures (connection refused, DNS errors)
+- **`TimeoutError`**: Thrown when operations time out (HTTP 408)
+- **`TemplateNotFoundError`**: Thrown when template is not found, includes fuzzy matching to suggest similar names
+
+```typescript
+import {
+  ValidationError,
+  NetworkError,
+  TimeoutError,
+  TemplateNotFoundError
+} from '@hopx-ai/sdk';
+
+try {
+  const sandbox = await Sandbox.create({ template: 'pythn' });  // typo
+} catch (error) {
+  if (error instanceof TemplateNotFoundError) {
+    console.log(error.suggestedTemplate);  // "python"
+  }
+}
+```
+
+**Fuzzy Template Name Matching**
+- `TemplateNotFoundError` includes Levenshtein distance-based fuzzy matching
+- Suggests similar template names when a typo is detected (60% similarity threshold)
+- Properties: `templateName`, `availableTemplates`, `suggestedTemplate`
+
+### Issue Status
+
+- **#14**: JWT race condition - **FIXED**
+- **#9**: Sandbox.list() return type - **FIXED** (Breaking Change)
+- **#11**: iter() method - Already implemented in v0.3.0 (no changes needed)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/errors.ts` | Added ValidationError, NetworkError, TimeoutError, TemplateNotFoundError |
+| `src/index.ts` | Export new error classes |
+| `src/sandbox.ts` | Fixed list() return type, fixed JWT race in create() |
+| `src/ws-client.ts` | Added empty message protection |
+| `src/resources/files.ts` | Added null filtering in list() |
+| `package.json` | Version 0.3.8 |
+
+---
+
+## [0.3.7] - 2025-11-26
+
+### Fixed
+
+**Template Activation Stability: Conservative `is_active` Default**
+- Fixed `is_active` defaulting to `true` when API returns `undefined` or `null`
+- **Impact**: SDK could prematurely return from `Template.build()` before template was ready, causing `ServerError` when creating sandboxes
+- **Resolution**: Changed default from `true` to `false` (conservative approach, matching Python SDK behavior)
+- **Files Modified**: `src/template/build-flow.ts` (line 632)
+
+**Template Build Error Context**
+- Build failures now throw `TemplateBuildError` with comprehensive debugging information
+- Error includes: build ID, template ID, build status, logs URL, and extracted error details from build logs
+- **Previous**: Generic error message: `Build failed: Unknown error`
+- **Now**: Rich error with structured metadata for debugging and HopX bug reports
+- **Files Modified**: `src/template/build-flow.ts` (lines 103-143), `src/errors.ts` (new `TemplateBuildError` class)
+
+**Missing `filesHash` Mapping in Upload Response**
+- Fixed `filesHash` field not being mapped from API response in `getUploadLink()`
+- **Impact**: File hash was lost during upload flow, preventing proper cache validation
+- **Files Modified**: `src/template/build-flow.ts` (line 240)
+
+### Added
+
+**Template Status Change Tracking**
+- Template activation now logs all status transitions for debugging
+- Log format: `Template status: {status} (is_active: {value})`
+- **Benefit**: Provides visibility into template lifecycle (building → publishing → active)
+- **Files Modified**: `src/template/build-flow.ts` (lines 635-644)
+
+**Request ID Support for Template Operations**
+- Added `requestId` field to `BuildResponse` and `BuildStatusResponse` types
+- Request IDs are now captured from API responses for debugging
+- Included in `TemplateBuildError` for correlation with HopX support requests
+- **Files Modified**: `src/template/types.ts`, `src/template/build-flow.ts`
+
+**Improved Timeout Error Messages**
+- Timeout errors now include template ID and last known status
+- **Previous**: `Template did not become stable within N minutes...`
+- **Now**: `Template {id} did not become active within N minutes. Last status: {status}...`
+- **Files Modified**: `src/template/build-flow.ts` (lines 712-716)
+
+### New Error Types
+
+**TemplateBuildError**
+- New error class for template build failures
+- Properties: `buildId`, `templateId`, `buildStatus`, `logsUrl`, `errorDetails`, `metadata`
+- Exported from main SDK entry point for error handling
+- **Files Added**: `src/errors.ts` (lines 197-230)
+
+### Testing
+
+**Build Reproduction Test**
+- Added `examples/test-build-reproduction.ts` for reproducing and capturing evidence of build failures
+- Captures: all build logs, timestamps, error details, environment info
+- Saves evidence to `test-evidence/` directory for bug reports
+- Run with: `npx tsx examples/test-build-reproduction.ts`
+
+---
+
 ## [0.3.6] - 2025-11-26
 
 ### Fixed

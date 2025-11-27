@@ -78,7 +78,7 @@ def _parse_sandbox_info_response(response: Dict[str, Any]) -> "SandboxInfo":
         resources = Resources(
             vcpu=response["resources"]["vcpu"],
             memory_mb=response["resources"]["memory_mb"],
-            disk_mb=response["resources"]["disk_mb"]
+            disk_mb=response["resources"]["disk_mb"],
         )
 
     # Parse timestamps using utility function
@@ -143,39 +143,41 @@ def _parse_rich_outputs(data: Dict[str, Any]) -> List["RichOutput"]:
 
     # Check for PNG (Matplotlib)
     if data.get("png"):
-        rich_outputs.append(RichOutput(
-            type="image/png",
-            data={"image/png": data["png"]},
-            metadata=None,
-            timestamp=None
-        ))
+        rich_outputs.append(
+            RichOutput(
+                type="image/png", data={"image/png": data["png"]}, metadata=None, timestamp=None
+            )
+        )
 
     # Check for HTML (Pandas, Plotly)
     if data.get("html"):
-        rich_outputs.append(RichOutput(
-            type="text/html",
-            data={"text/html": data["html"]},
-            metadata=None,
-            timestamp=None
-        ))
+        rich_outputs.append(
+            RichOutput(
+                type="text/html", data={"text/html": data["html"]}, metadata=None, timestamp=None
+            )
+        )
 
     # Check for JSON (Plotly)
     if data.get("json"):
-        rich_outputs.append(RichOutput(
-            type="application/json",
-            data={"application/json": data["json"]},
-            metadata=None,
-            timestamp=None
-        ))
+        rich_outputs.append(
+            RichOutput(
+                type="application/json",
+                data={"application/json": data["json"]},
+                metadata=None,
+                timestamp=None,
+            )
+        )
 
     # Check for DataFrame JSON
     if data.get("dataframe"):
-        rich_outputs.append(RichOutput(
-            type="application/vnd.dataframe+json",
-            data={"application/vnd.dataframe+json": data["dataframe"]},
-            metadata=None,
-            timestamp=None
-        ))
+        rich_outputs.append(
+            RichOutput(
+                type="application/vnd.dataframe+json",
+                data={"application/vnd.dataframe+json": data["dataframe"]},
+                metadata=None,
+                timestamp=None,
+            )
+        )
 
     return rich_outputs
 
@@ -199,6 +201,7 @@ def _parse_template_response(response: Dict[str, Any]) -> "Template":
         'python'
     """
     from .models import Template
+
     return Template(**response)
 
 
@@ -221,5 +224,6 @@ def _parse_template_list_response(response: Dict[str, Any]) -> List["Template"]:
         2
     """
     from .models import Template
-    templates_data = response.get("data", [])
+
+    templates_data = response.get("data") or []
     return [Template(**t) for t in templates_data]

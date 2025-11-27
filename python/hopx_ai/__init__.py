@@ -61,7 +61,12 @@ from .errors import (
     SandboxExpiredError,
     TokenExpiredError,
     SandboxErrorMetadata,
+    # Template errors
+    TemplateBuildError,
+    TemplateBuildErrorMetadata,
+    TemplateNotFoundError,
 )
+
 # Template Building
 from .template import (
     Template,
@@ -73,7 +78,7 @@ from .template import (
     wait_for_command,
 )
 
-__version__ = "0.3.6"
+__version__ = "0.3.8"
 __all__ = [
     "Sandbox",
     "AsyncSandbox",
@@ -112,6 +117,10 @@ __all__ = [
     "SandboxExpiredError",
     "TokenExpiredError",
     "SandboxErrorMetadata",
+    # Template errors
+    "TemplateBuildError",
+    "TemplateBuildErrorMetadata",
+    "TemplateNotFoundError",
     # Template Building
     "Template",
     "create_template",
@@ -121,4 +130,3 @@ __all__ = [
     "wait_for_process",
     "wait_for_command",
 ]
-

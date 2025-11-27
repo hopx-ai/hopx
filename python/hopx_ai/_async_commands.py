@@ -1,6 +1,6 @@
 """Async command execution for sandboxes."""
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 import logging
 from ._async_agent_client import AsyncAgentHTTPClient
 from .models import ExecutionResult
@@ -11,17 +11,17 @@ logger = logging.getLogger(__name__)
 
 class AsyncCommands(_CommandsBase):
     """Async command execution for sandboxes."""
-    
+
     def __init__(self, sandbox):
         """Initialize with sandbox reference."""
         self._sandbox = sandbox
         logger.debug("AsyncCommands initialized")
-    
+
     async def _get_client(self) -> AsyncAgentHTTPClient:
         """Get agent client from sandbox."""
         await self._sandbox._ensure_agent_client()
         return self._sandbox._agent_client
-    
+
     async def run(
         self,
         command: str,
@@ -29,7 +29,7 @@ class AsyncCommands(_CommandsBase):
         timeout_seconds: int = 120,
         background: bool = False,
         env: Optional[Dict[str, str]] = None,
-        working_dir: str = "/workspace"
+        working_dir: str = "/workspace",
     ) -> ExecutionResult:
         """
         Run shell command.
@@ -45,7 +45,9 @@ class AsyncCommands(_CommandsBase):
             ExecutionResult with stdout, stderr, exit_code
         """
         if background:
-            return await self._run_background(command, timeout=timeout_seconds, env=env, working_dir=working_dir)
+            return await self._run_background(
+                command, timeout=timeout_seconds, env=env, working_dir=working_dir
+            )
 
         self._log_command_start(command, background=False)
 
@@ -59,7 +61,7 @@ class AsyncCommands(_CommandsBase):
             json=payload,
             operation="run command",
             context={"command": command},
-            timeout=timeout_seconds + 30  # Add buffer to HTTP timeout for network latency
+            timeout=timeout_seconds + 30,  # Add buffer to HTTP timeout for network latency
         )
 
         return ExecutionResult(
@@ -68,7 +70,7 @@ class AsyncCommands(_CommandsBase):
             stderr=response.get("stderr", ""),
             exit_code=response.get("exit_code", 0),
             execution_time=response.get("execution_time", 0.0),
-            rich_outputs=[]
+            rich_outputs=[],
         )
 
     async def _run_background(
@@ -76,7 +78,7 @@ class AsyncCommands(_CommandsBase):
         command: str,
         timeout: int = 120,
         env: Optional[Dict[str, str]] = None,
-        working_dir: str = "/workspace"
+        working_dir: str = "/workspace",
     ) -> ExecutionResult:
         """
         Run command in background.
@@ -101,16 +103,16 @@ class AsyncCommands(_CommandsBase):
             "/commands/background",
             json=payload,
             operation="run background command",
-            context={"command": command}
+            context={"command": command},
         )
 
         # Return an ExecutionResult indicating background execution
-        process_id = response.get('process_id', 'unknown')
+        process_id = response.get("process_id", "unknown")
         return ExecutionResult(
             success=True,
             stdout=f"Background process started: {process_id}",
             stderr="",
             exit_code=0,
             execution_time=0.0,
-            rich_outputs=[]
+            rich_outputs=[],
         )
