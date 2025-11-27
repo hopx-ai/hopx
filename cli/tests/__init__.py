@@ -1,0 +1,1 @@
+"""Hopx CLI test suite."""
