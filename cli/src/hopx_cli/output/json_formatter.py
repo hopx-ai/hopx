@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import BaseModel
 
 
-def format_json(data: Any, indent: int = 2, compact: bool = False) -> str:
+def format_json(data: Any, indent: int | None = 2, compact: bool = False) -> str:
     """Format data as JSON string.
 
     Handles Pydantic models, datetime objects, bytes, and other types

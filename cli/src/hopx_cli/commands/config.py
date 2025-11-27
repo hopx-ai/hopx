@@ -10,6 +10,7 @@ Provides commands for managing CLI configuration including:
 import os
 from typing import Any
 
+import click
 import typer
 import yaml
 from rich.console import Console
@@ -158,7 +159,7 @@ def init(ctx: typer.Context) -> None:
     output_format = typer.prompt(
         "Output format",
         default="table",
-        type=typer.Choice(["table", "json", "plain"]),
+        type=click.Choice(["table", "json", "plain"]),
         show_default=True,
     )
 

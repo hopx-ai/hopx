@@ -66,7 +66,7 @@ class CredentialStore:
 
         key = self._read_from_config("api_key")
         if key:
-            return key
+            return str(key)
 
         return os.environ.get("HOPX_API_KEY")
 
@@ -116,7 +116,7 @@ class CredentialStore:
             expires_at_str = keyring.get_password(KEYRING_SERVICE, f"{self.profile}:oauth_expires")
 
             if access_token:
-                token = {"access_token": access_token}
+                token: dict[str, Any] = {"access_token": access_token}
                 if refresh_token:
                     token["refresh_token"] = refresh_token
                 if expires_at_str:
@@ -128,7 +128,10 @@ class CredentialStore:
         except Exception:
             pass
 
-        return self._read_from_config("oauth_token")
+        result = self._read_from_config("oauth_token")
+        if result is not None and isinstance(result, dict):
+            return dict(result)
+        return None
 
     def clear(self) -> None:
         """Remove all stored credentials for this profile."""

@@ -6,6 +6,7 @@ Handles OAuth login, API key management, and authentication status.
 import re
 import time
 from datetime import UTC, datetime
+from typing import Literal, cast
 
 import httpx
 import typer
@@ -474,6 +475,7 @@ def keys_list(ctx: typer.Context) -> None:
 # Valid expiration options - must match API schema exactly
 # From types.ts line 245: expires_in: "1month" | "3months" | "6months" | "1year" | "never"
 EXPIRES_OPTIONS = ["1month", "3months", "6months", "1year", "never"]
+ExpiresInType = Literal["1month", "3months", "6months", "1year", "never"]
 
 
 @keys_app.command("create")
@@ -535,7 +537,7 @@ def keys_create(
 
     try:
         with Spinner(f"Creating API key '{name}'..."), APIKeyManager(oauth_token) as manager:
-            result = manager.create_key(name, expires_in=expires_in)
+            result = manager.create_key(name, expires_in=cast(ExpiresInType, expires_in))
 
         # FIXED: Parse response correctly (from types.ts lines 248-253)
         # Response: {"success": true, "api_key": {...}, "full_key": "hopx_live_xxx.secret"}
@@ -589,7 +591,7 @@ def keys_create(
         console.print(Panel(content, title="API Key Created", border_style="green"))
 
         # Auto-store as current credentials by default
-        if not no_store:
+        if not no_store and key_value is not None:
             credentials.store_api_key(key_value)
             console.print(
                 f"\n[green]✓[/green] Stored as current credentials for profile [cyan]{profile}[/cyan]"

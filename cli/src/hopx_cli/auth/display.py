@@ -2,8 +2,8 @@
 
 from typing import Any
 
-import pyperclip  # type: ignore[import-untyped]
-import qrcode  # type: ignore[import-untyped]
+import pyperclip
+import qrcode
 from rich.console import Console
 
 console = Console()

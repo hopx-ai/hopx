@@ -26,31 +26,33 @@ Hopx CLI provides terminal access to Hopx.ai cloud sandboxes - secure, isolated 
 curl -fsSL https://raw.githubusercontent.com/hopx-ai/hopx/main/cli/scripts/install.sh | bash
 ```
 
+Handles everything automatically, including PEP 668 environments on macOS/modern Linux.
+
+### Alternative Methods
+
+**uv** (fastest):
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install hopx-cli
+```
+
+**pipx** (isolated):
+```bash
+pipx install hopx-cli
+```
+
+**pip**:
+```bash
+pip install --user hopx-cli
+```
+
 ### Update
 
 ```bash
 hopx self-update
 ```
 
-### uv (recommended)
-
-```bash
-uv tool install hopx-cli
-```
-
-### pip
-
-```bash
-pip install hopx-cli
-```
-
-### pipx (isolated)
-
-```bash
-pipx install hopx-cli
-```
-
-See [INSTALL.md](INSTALL.md) for detailed installation options.
+See [INSTALL.md](INSTALL.md) for detailed options and troubleshooting.
 
 ## Quick Start
 

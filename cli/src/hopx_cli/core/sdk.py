@@ -35,13 +35,14 @@ def list_sandboxes(
         ValueError: If API key is not configured
     """
     api_key = config.get_api_key()
-    return Sandbox.list(
+    result = Sandbox.list(
         status=status,
         region=region,
         limit=limit,
         api_key=api_key,
         base_url=config.base_url,
     )
+    return list(result) if result else []
 
 
 def create_sandbox(
@@ -151,13 +152,14 @@ async def list_sandboxes_async(
         ValueError: If API key is not configured
     """
     api_key = config.get_api_key()
-    return await AsyncSandbox.list(
+    result = await AsyncSandbox.list(
         status=status,
         region=region,
         limit=limit,
         api_key=api_key,
         base_url=config.base_url,
     )
+    return list(result) if result else []
 
 
 async def create_sandbox_async(

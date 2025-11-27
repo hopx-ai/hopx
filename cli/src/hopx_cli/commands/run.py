@@ -140,7 +140,7 @@ def format_execution_result(
         if result.stdout:
             console.print(result.stdout, highlight=False, end="")
         if result.stderr:
-            console.print(result.stderr, file=sys.stderr, highlight=False, end="")
+            sys.stderr.write(result.stderr)
 
     else:  # table
         # Rich formatted output
@@ -235,7 +235,7 @@ def format_command_result(
         if result.stdout:
             console.print(result.stdout, highlight=False, end="")
         if result.stderr:
-            console.print(result.stderr, file=sys.stderr, highlight=False, end="")
+            sys.stderr.write(result.stderr)
 
     else:  # table
         if result.stdout:

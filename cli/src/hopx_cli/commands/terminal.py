@@ -5,6 +5,7 @@ Provides WebSocket-based terminal access to sandboxes with PTY support.
 
 import asyncio
 import sys
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -246,7 +247,7 @@ async def _async_connect(
         raise typer.Exit(code=1)
 
 
-async def _execute_command(ws, command: str) -> None:
+async def _execute_command(ws: Any, command: str) -> None:
     """Execute a single command and display output.
 
     Args:
@@ -270,7 +271,7 @@ async def _execute_command(ws, command: str) -> None:
         max_messages = 1000  # Safety limit
 
         # Read messages with timeout
-        async def read_messages():
+        async def read_messages() -> None:
             nonlocal message_count
             async for message in ws:
                 message_count += 1
@@ -306,7 +307,7 @@ async def _execute_command(ws, command: str) -> None:
         console.print("\n[yellow]Command timed out[/yellow]")
 
 
-async def _interactive_session(ws) -> None:
+async def _interactive_session(ws: Any) -> None:
     """Run interactive terminal session.
 
     This is a basic implementation that reads from stdin and forwards
@@ -322,7 +323,7 @@ async def _interactive_session(ws) -> None:
     console.print("[dim]Type 'exit' or press Ctrl+D to close session[/dim]\n")
 
     # Create tasks for reading input and output
-    async def read_stdin():
+    async def read_stdin() -> None:
         """Read from stdin and send to WebSocket."""
         loop = asyncio.get_event_loop()
         while True:
@@ -335,7 +336,7 @@ async def _interactive_session(ws) -> None:
             except Exception:
                 break
 
-    async def read_output():
+    async def read_output() -> None:
         """Read from WebSocket and write to stdout."""
         try:
             async for message in ws:

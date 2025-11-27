@@ -6,6 +6,7 @@ list, delete, and info commands for managing files within sandboxes.
 
 import sys
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -57,7 +58,7 @@ def _format_file_size(size_bytes: int) -> str:
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 
-def _format_file_info(file_info: dict, ctx: CLIContext) -> None:
+def _format_file_info(file_info: dict[str, Any], ctx: CLIContext) -> None:
     """Format and display file information.
 
     Args:

@@ -119,7 +119,9 @@ def prompt_text(
     Example:
         name = prompt_text("Enter sandbox name", default="my-sandbox")
     """
-    return Prompt.ask(message, default=default, password=password)
+    if default is not None:
+        return Prompt.ask(message, default=default, password=password)
+    return Prompt.ask(message, password=password)
 
 
 def show_resource_summary(

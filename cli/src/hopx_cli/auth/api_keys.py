@@ -79,7 +79,8 @@ class APIKeyManager:
         if not data.get("success", True):
             raise RuntimeError(data.get("message", "Failed to list API keys"))
 
-        return data.get("api_keys", [])  # FIXED: api_keys not keys
+        result: list[dict[str, Any]] = data.get("api_keys", [])
+        return result
 
     def create_key(self, name: str, expires_in: ExpiresIn = "never") -> dict[str, Any]:
         """
@@ -160,7 +161,7 @@ class APIKeyManager:
         response = self.client.delete(f"/auth/api-keys/{key_id}")  # FIXED: /auth prefix
         response.raise_for_status()
         data = response.json()
-        return data.get("success", False)
+        return bool(data.get("success", False))
 
     def get_key(self, key_id: str) -> dict[str, Any]:
         """
@@ -186,4 +187,5 @@ class APIKeyManager:
         if not data.get("success", True):
             raise RuntimeError(data.get("message", "Failed to get API key"))
 
-        return data.get("api_key", {})
+        result: dict[str, Any] = data.get("api_key", {})
+        return result

@@ -1,11 +1,11 @@
 #!/bin/bash
-# Hopx CLI Installer v2.0.0
+# Hopx CLI Installer v2.1.0
 #
 # One-liner installation:
 #   curl -fsSL https://raw.githubusercontent.com/hopx-ai/hopx/main/cli/scripts/install.sh | bash
 #
 # Environment variables:
-#   HOPX_INSTALL_MODE     - Installation mode: pip (default), pipx, git
+#   HOPX_INSTALL_MODE     - Installation mode: pip (default), uv, pipx, git
 #   HOPX_NON_INTERACTIVE  - Skip all prompts (true/false)
 #   HOPX_SKIP_PATH_SETUP  - Don't modify shell config (true/false)
 #   HOPX_QUIET            - Minimal output (true/false)
@@ -18,7 +18,7 @@ set -euo pipefail
 # =============================================================================
 # Configuration
 # =============================================================================
-SCRIPT_VERSION="2.0.0"
+SCRIPT_VERSION="2.1.0"
 PACKAGE_NAME="hopx-cli"
 PYPI_PACKAGE="hopx-cli"
 GITHUB_REPO="hopx-ai/hopx"
@@ -103,11 +103,11 @@ log_debug() {
 validate_inputs() {
     # Validate INSTALL_MODE
     case "$INSTALL_MODE" in
-        pip|pipx|git)
+        pip|pipx|uv|git)
             ;;
         *)
             log_error "Invalid HOPX_INSTALL_MODE: $INSTALL_MODE"
-            log_info "Valid modes: pip, pipx, git"
+            log_info "Valid modes: pip, pipx, uv, git"
             exit 2
             ;;
     esac
@@ -527,6 +527,19 @@ ensure_pip() {
 install_with_pip() {
     log_step "Installing Hopx CLI via pip..."
 
+    # First, check if uv or pipx are already available (preferred methods)
+    if command_exists uv; then
+        log_info "uv detected, using uv tool install (recommended)..."
+        install_with_uv
+        return $?
+    fi
+
+    if command_exists pipx; then
+        log_info "pipx detected, using pipx install..."
+        install_with_pipx
+        return $?
+    fi
+
     local pip_args=(
         "$PYTHON_CMD" "-m" "pip" "install"
         "--upgrade"
@@ -538,31 +551,44 @@ install_with_pip() {
         return 0
     fi
 
-    # Try user-level install first (no sudo needed)
-    if "${pip_args[@]}" --user 2>/dev/null; then
+    # Try user-level install, capture stderr for error analysis
+    local error_log
+    error_log=$(mktemp)
+
+    if "${pip_args[@]}" --user 2>"$error_log"; then
+        rm -f "$error_log"
         log_success "Installed $PYPI_PACKAGE (user-level)"
         INSTALL_PATH=$($PYTHON_CMD -m site --user-base)/bin
         return 0
     fi
 
-    # Check for externally-managed-environment (PEP 668)
-    if $PYTHON_CMD -m pip install --user "$PYPI_PACKAGE" 2>&1 | grep -q "externally-managed"; then
+    local error_msg
+    error_msg=$(cat "$error_log")
+    rm -f "$error_log"
+
+    # Check for PEP 668 externally-managed-environment error
+    if echo "$error_msg" | grep -qE "externally.managed|externally-managed"; then
         log_warning "System Python is externally managed (PEP 668)"
-        log_info "Switching to pipx installation..."
-        install_with_pipx
+        log_info "This is common on macOS with Homebrew and modern Linux distributions."
+
+        # Try installing via uv (auto-install uv first)
+        log_info "Installing uv package manager as fallback..."
+        install_with_uv
         return $?
     fi
 
-    # Fallback to system-wide install
+    # For other errors, try system-wide install (not appropriate for PEP 668)
     log_info "User-level install failed, trying system-wide..."
-    if sudo "${pip_args[@]}"; then
+    if sudo "${pip_args[@]}" 2>/dev/null; then
         log_success "Installed $PYPI_PACKAGE (system-wide)"
         INSTALL_PATH="/usr/local/bin"
-    else
-        log_error "pip installation failed"
-        log_info "Try: $PYTHON_CMD -m pip install --user $PYPI_PACKAGE"
-        exit 1
+        return 0
     fi
+
+    # If system-wide also failed, fallback to uv
+    log_warning "pip installation failed, falling back to uv..."
+    install_with_uv
+    return $?
 }
 
 install_with_pipx() {
@@ -620,6 +646,51 @@ install_from_git() {
         log_success "Installed from GitHub (system-wide)"
         INSTALL_PATH="/usr/local/bin"
     fi
+}
+
+install_with_uv() {
+    log_step "Installing Hopx CLI via uv..."
+
+    # Install uv if not available
+    if ! command_exists uv; then
+        log_info "Installing uv package manager..."
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_warning "DRY RUN: Would install uv via curl"
+        else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+
+            # Add uv to current PATH
+            export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
+            # Verify uv is now available
+            if ! command_exists uv; then
+                log_error "Failed to install uv"
+                log_info "Try: curl -LsSf https://astral.sh/uv/install.sh | sh"
+                return 1
+            fi
+
+            log_success "uv installed"
+        fi
+    else
+        log_info "uv is already installed"
+    fi
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_warning "DRY RUN: Would run: uv tool install $PYPI_PACKAGE"
+        return 0
+    fi
+
+    # Install or upgrade the package
+    if uv tool list 2>/dev/null | grep -q "$PACKAGE_NAME"; then
+        uv tool upgrade "$PYPI_PACKAGE"
+        log_success "Upgraded $PYPI_PACKAGE via uv"
+    else
+        uv tool install "$PYPI_PACKAGE"
+        log_success "Installed $PYPI_PACKAGE via uv"
+    fi
+
+    INSTALL_PATH="$HOME/.local/bin"
 }
 
 # =============================================================================
@@ -810,7 +881,7 @@ Hopx CLI Installer v$SCRIPT_VERSION
 Usage: $0 [OPTIONS]
 
 Options:
-  --mode MODE       Installation mode: pip (default), pipx, git
+  --mode MODE       Installation mode (see below)
   --dry-run         Preview changes without installing
   --non-interactive Skip all prompts (use defaults)
   --quiet           Minimal output
@@ -818,16 +889,25 @@ Options:
   --help            Show this help message
   --version         Show installer version
 
+Installation Modes:
+  pip     Auto-detect best method: tries uv → pipx → pip (default)
+  uv      Install via uv tool (recommended, fastest, auto-installs uv)
+  pipx    Install via pipx (isolated environment)
+  git     Install from GitHub source (development)
+
 Environment Variables:
-  HOPX_INSTALL_MODE      Installation mode (pip, pipx, git)
+  HOPX_INSTALL_MODE      Installation mode (pip, uv, pipx, git)
   HOPX_NON_INTERACTIVE   Skip prompts (true/false)
   HOPX_SKIP_PATH_SETUP   Don't modify PATH (true/false)
   HOPX_QUIET             Minimal output (true/false)
   HOPX_DRY_RUN           Preview mode (true/false)
 
 Examples:
-  # Standard installation
+  # Standard installation (auto-detects best method)
   curl -fsSL https://raw.githubusercontent.com/hopx-ai/hopx/main/cli/scripts/install.sh | bash
+
+  # Install with uv (recommended)
+  curl -fsSL ... | bash -s -- --mode uv
 
   # CI/CD installation
   HOPX_NON_INTERACTIVE=true curl -fsSL ... | bash
@@ -886,6 +966,9 @@ main() {
     case "$INSTALL_MODE" in
         pip)
             install_with_pip
+            ;;
+        uv)
+            install_with_uv
             ;;
         pipx)
             install_with_pipx

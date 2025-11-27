@@ -56,24 +56,28 @@ class TokenManager:
         expires_at = token_data.get("expires_at")
         refresh_token = token_data.get("refresh_token")
 
-        if not access_token:
+        if not access_token or not isinstance(access_token, str):
             return None
+
+        # Type narrowing: access_token is now str
+        validated_token: str = access_token
 
         current_time = int(time.time())
 
-        if expires_at and expires_at - current_time < 300:
-            if not refresh_token:
+        if expires_at and isinstance(expires_at, int) and expires_at - current_time < 300:
+            if not refresh_token or not isinstance(refresh_token, str):
                 return None
 
             try:
                 new_token = refresh_oauth_token(refresh_token)
                 new_token["refresh_token"] = refresh_token
                 self.credentials.store_oauth_token(new_token)
-                return new_token["access_token"]
+                new_access: str = str(new_token["access_token"])
+                return new_access
             except Exception:
                 return None
 
-        return access_token
+        return validated_token
 
     def is_authenticated(self) -> bool:
         """

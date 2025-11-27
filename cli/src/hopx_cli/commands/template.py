@@ -10,6 +10,7 @@ from typing import Any
 import typer
 from hopx_ai import Sandbox
 from hopx_ai import Template as TemplateModel
+from hopx_ai.template.builder import BuildResult
 from rich.console import Console
 from rich.table import Table
 
@@ -459,7 +460,7 @@ def build(
     }
     current_stage = "packaging"
 
-    def display_stages():
+    def display_stages() -> None:
         """Display build stages with status."""
         stage_icons = {
             "pending": "[dim]○[/dim]",
@@ -526,7 +527,7 @@ def build(
     build_opts.on_progress = on_progress
 
     # Run async build with staged progress
-    async def run_build():
+    async def run_build() -> BuildResult:
         # Start with packaging
         build_stages["packaging"]["status"] = "running"
 
