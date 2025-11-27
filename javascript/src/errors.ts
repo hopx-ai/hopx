@@ -229,3 +229,101 @@ export class TemplateBuildError extends HopxError {
   }
 }
 
+/**
+ * Error thrown when request validation fails
+ */
+export class ValidationError extends HopxError {
+  constructor(message: string, requestId?: string) {
+    super(message, ErrorCode.INVALID_REQUEST, requestId, 400);
+    this.name = 'ValidationError';
+  }
+}
+
+/**
+ * Error thrown when a network error occurs (connection refused, DNS failure, etc.)
+ */
+export class NetworkError extends HopxError {
+  constructor(message: string, requestId?: string) {
+    super(message, undefined, requestId);
+    this.name = 'NetworkError';
+  }
+}
+
+/**
+ * Error thrown when an operation times out
+ */
+export class TimeoutError extends HopxError {
+  constructor(message: string, requestId?: string) {
+    super(message, ErrorCode.EXECUTION_TIMEOUT, requestId, 408);
+    this.name = 'TimeoutError';
+  }
+}
+
+/**
+ * Error thrown when a template is not found
+ * Includes fuzzy matching to suggest similar template names
+ */
+export class TemplateNotFoundError extends NotFoundError {
+  public readonly templateName: string;
+  public readonly availableTemplates: string[];
+  public readonly suggestedTemplate?: string;
+
+  constructor(templateName: string, availableTemplates: string[] = [], requestId?: string) {
+    const suggested = TemplateNotFoundError.fuzzyMatch(templateName, availableTemplates);
+    let message = `Template '${templateName}' not found`;
+    if (suggested) {
+      message += `. Did you mean '${suggested}'?`;
+    }
+    super(message, requestId);
+    this.name = 'TemplateNotFoundError';
+    this.templateName = templateName;
+    this.availableTemplates = availableTemplates;
+    this.suggestedTemplate = suggested;
+  }
+
+  /**
+   * Find the closest matching template name using Levenshtein distance
+   */
+  private static fuzzyMatch(name: string, options: string[]): string | undefined {
+    const normalize = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const target = normalize(name);
+
+    let bestMatch: string | undefined;
+    let bestScore = Infinity;
+
+    for (const option of options) {
+      const optNorm = normalize(option);
+      const distance = TemplateNotFoundError.levenshtein(target, optNorm);
+      const maxLen = Math.max(target.length, optNorm.length);
+      const similarity = maxLen > 0 ? 1 - (distance / maxLen) : 0;
+
+      if (similarity >= 0.6 && distance < bestScore) {
+        bestScore = distance;
+        bestMatch = option;
+      }
+    }
+    return bestMatch;
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   */
+  private static levenshtein(a: string, b: string): number {
+    const matrix: number[][] = [];
+    for (let i = 0; i <= b.length; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+      matrix[0][j] = j;
+    }
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        matrix[i][j] = b[i - 1] === a[j - 1]
+          ? matrix[i - 1][j - 1]
+          : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      }
+    }
+    return matrix[b.length][a.length];
+  }
+}
+

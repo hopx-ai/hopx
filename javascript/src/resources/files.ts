@@ -69,7 +69,9 @@ export class Files {
     const response = await this.client.get<FileListResponse>('/files/list', {
       params: { path },
     });
-    return response.files.map((f) => new FileInfoImpl(f));
+    // Fix null handling: filter out null entries from response
+    const files = (response.files || []).filter((f) => f != null);
+    return files.map((f) => new FileInfoImpl(f));
   }
 
   /**

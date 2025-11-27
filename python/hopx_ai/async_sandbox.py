@@ -1,15 +1,57 @@
 """Async Sandbox class - for async/await usage."""
 
-from typing import Optional, List, AsyncIterator, Dict, Any
+from typing import Optional, List, AsyncIterator, Dict, Any, Coroutine
 from datetime import datetime, timedelta
 
 from .models import SandboxInfo, Template, ExpiryInfo
 from ._async_client import AsyncHTTPClient
 from ._utils import remove_none_values
-from ._token_cache import TokenData, _token_cache, store_token_from_response, get_cached_token
-from ._parsers import _parse_sandbox_info_response, _parse_rich_outputs, _parse_template_response, _parse_template_list_response
-from ._sandbox_utils import build_sandbox_create_payload, build_list_templates_params, build_set_timeout_payload
-from .errors import SandboxExpiredError, SandboxErrorMetadata
+from ._token_cache import _token_cache, store_token_from_response, get_cached_token
+from ._parsers import (
+    _parse_sandbox_info_response,
+    _parse_rich_outputs,
+    _parse_template_response,
+    _parse_template_list_response,
+)
+from ._sandbox_utils import (
+    build_sandbox_create_payload,
+    build_list_templates_params,
+    build_set_timeout_payload,
+)
+from .errors import SandboxExpiredError, SandboxErrorMetadata, NotFoundError, TemplateNotFoundError
+
+
+class _AsyncSandboxContextManager:
+    """
+    Wrapper to allow `async with AsyncSandbox.create(...)` syntax.
+
+    This class makes the create() coroutine work as both:
+    1. Direct await: `sandbox = await AsyncSandbox.create(...)`
+    2. Context manager: `async with AsyncSandbox.create(...) as sandbox:`
+    """
+
+    def __init__(self, coro: Coroutine[Any, Any, "AsyncSandbox"]):
+        self._coro = coro
+        self._sandbox: Optional["AsyncSandbox"] = None
+
+    def __await__(self):
+        """Allow direct await: `sandbox = await AsyncSandbox.create(...)`."""
+        return self._coro.__await__()
+
+    async def __aenter__(self) -> "AsyncSandbox":
+        """Allow context manager: `async with AsyncSandbox.create(...) as sandbox:`."""
+        self._sandbox = await self._coro
+        return self._sandbox
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """Cleanup sandbox on context manager exit."""
+        if self._sandbox:
+            try:
+                await self._sandbox.kill()
+            except Exception:
+                # Ignore cleanup errors
+                pass
+        return False
 
 
 class AsyncSandbox:
@@ -56,6 +98,7 @@ class AsyncSandbox:
             max_retries=max_retries,
         )
         self._agent_client = None
+        self._ws_client = None
         self._jwt_token = None
 
     # =============================================================================
@@ -63,7 +106,7 @@ class AsyncSandbox:
     # =============================================================================
 
     @classmethod
-    async def create(
+    def create(
         cls,
         template: Optional[str] = None,
         *,
@@ -74,7 +117,7 @@ class AsyncSandbox:
         env_vars: Optional[Dict[str, str]] = None,
         api_key: Optional[str] = None,
         base_url: str = "https://api.hopx.dev",
-    ) -> "AsyncSandbox":
+    ) -> _AsyncSandboxContextManager:
         """
         Create a new sandbox (async).
 
@@ -93,22 +136,48 @@ class AsyncSandbox:
             base_url: API base URL
 
         Returns:
-            AsyncSandbox instance
+            Context manager that can be awaited or used with `async with`
 
         Examples:
-            >>> # Create from template ID with timeout
+            >>> # Direct await
             >>> sandbox = await AsyncSandbox.create(
             ...     template_id="282",
             ...     timeout_seconds=600,
             ...     internet_access=False
             ... )
+            >>> await sandbox.kill()
 
-            >>> # Create custom sandbox
-            >>> sandbox = await AsyncSandbox.create(
-            ...     template="code-interpreter",
-            ...     timeout_seconds=300
-            ... )
+            >>> # Context manager (auto-cleanup)
+            >>> async with AsyncSandbox.create(template="code-interpreter") as sandbox:
+            ...     result = await sandbox.run_code("print('hello')")
         """
+        return _AsyncSandboxContextManager(
+            cls._create_impl(
+                template=template,
+                template_id=template_id,
+                region=region,
+                timeout_seconds=timeout_seconds,
+                internet_access=internet_access,
+                env_vars=env_vars,
+                api_key=api_key,
+                base_url=base_url,
+            )
+        )
+
+    @classmethod
+    async def _create_impl(
+        cls,
+        template: Optional[str] = None,
+        *,
+        template_id: Optional[str] = None,
+        region: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+        internet_access: Optional[bool] = None,
+        env_vars: Optional[Dict[str, str]] = None,
+        api_key: Optional[str] = None,
+        base_url: str = "https://api.hopx.dev",
+    ) -> "AsyncSandbox":
+        """Internal implementation of create() logic."""
         client = AsyncHTTPClient(api_key=api_key, base_url=base_url)
 
         # Build payload using shared utility
@@ -121,8 +190,38 @@ class AsyncSandbox:
             env_vars=env_vars,
         )
 
-        response = await client.post("/v1/sandboxes", json=data)
-        sandbox_id = response["id"]
+        try:
+            response = await client.post("/v1/sandboxes", json=data)
+            sandbox_id = response["id"]
+        except NotFoundError as e:
+            # If template not found, provide helpful suggestions
+            if template:
+                # Fetch available templates for fuzzy matching
+                try:
+                    templates = await cls.list_templates(api_key=api_key, base_url=base_url)
+                    available_names = [t.name for t in templates]
+                    raise TemplateNotFoundError(
+                        template_name=template,
+                        available_templates=available_names,
+                        code=e.code,
+                        request_id=e.request_id,
+                        status_code=e.status_code,
+                        details=e.details,
+                    ) from e
+                except TemplateNotFoundError:
+                    raise
+                except Exception:
+                    # If fetching templates fails, raise without suggestions
+                    raise TemplateNotFoundError(
+                        template_name=template,
+                        code=e.code,
+                        request_id=e.request_id,
+                        status_code=e.status_code,
+                        details=e.details,
+                    ) from e
+            else:
+                # Re-raise original error if not template-related
+                raise
 
         # Store JWT token from create response using shared utility
         store_token_from_response(sandbox_id, response)
@@ -207,14 +306,16 @@ class AsyncSandbox:
         """
         client = AsyncHTTPClient(api_key=api_key, base_url=base_url)
 
-        params = remove_none_values({
-            "status": status,
-            "region": region,
-            "limit": limit,
-        })
+        params = remove_none_values(
+            {
+                "status": status,
+                "region": region,
+                "limit": limit,
+            }
+        )
 
         response = await client.get("/v1/sandboxes", params=params)
-        sandboxes_data = response.get("data", [])
+        sandboxes_data = response.get("data") or []
 
         return [
             cls(
@@ -271,7 +372,7 @@ class AsyncSandbox:
 
             response = await client.get("/v1/sandboxes", params=params)
 
-            for item in response.get("data", []):
+            for item in response.get("data") or []:
                 yield cls(
                     sandbox_id=item["id"],
                     api_key=api_key,
@@ -404,13 +505,17 @@ class AsyncSandbox:
         """
         # Use a minimal async client without API key for health check
         import aiohttp
+
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{base_url.rstrip('/')}/health", timeout=aiohttp.ClientTimeout(total=10)) as response:
+                async with session.get(
+                    f"{base_url.rstrip('/')}/health", timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
                     response.raise_for_status()
                     return await response.json()
         except aiohttp.ClientError as e:
             from .errors import NetworkError
+
             raise NetworkError(f"Health check failed: {e}")
 
     # =============================================================================
@@ -488,17 +593,17 @@ class AsyncSandbox:
         from .errors import HopxError
 
         # Remove protocol and trailing slash
-        host = public_host.replace('https://', '').replace('http://', '').rstrip('/')
+        host = public_host.replace("https://", "").replace("http://", "").rstrip("/")
 
         # Pattern 1: {port}-{sandbox_id}.{region}.vms.hopx.dev
-        match = re.match(r'^(?:\d+-)?([^.]+)\.(.+\.vms\.hopx\.dev)$', host)
+        match = re.match(r"^(?:\d+-)?([^.]+)\.(.+\.vms\.hopx\.dev)$", host)
         if match:
             sandbox_part = match.group(1)
             domain_part = match.group(2)
             return f"https://{port}-{sandbox_part}.{domain_part}/"
 
         # Pattern 2: {sandbox_id}.{region}.vms.hopx.dev (no port prefix)
-        match = re.match(r'^([^.]+)\.(.+\.vms\.hopx\.dev)$', host)
+        match = re.match(r"^([^.]+)\.(.+\.vms\.hopx\.dev)$", host)
         if match:
             sandbox_part = match.group(1)
             domain_part = match.group(2)
@@ -651,7 +756,7 @@ class AsyncSandbox:
                     created_at=str(info.created_at) if info.created_at else None,
                     expires_at=str(info.expires_at) if info.expires_at else None,
                     status=info.status,
-                )
+                ),
             )
 
         # Check agent health
@@ -688,10 +793,7 @@ class AsyncSandbox:
         """
         # Build payload using shared utility
         payload = build_set_timeout_payload(seconds)
-        await self._client.put(
-            f"/v1/sandboxes/{self.sandbox_id}/timeout",
-            json=payload
-        )
+        await self._client.put(f"/v1/sandboxes/{self.sandbox_id}/timeout", json=payload)
 
     async def kill(self) -> None:
         """
@@ -730,7 +832,6 @@ class AsyncSandbox:
     def __str__(self) -> str:
         return f"AsyncSandbox(id={self.sandbox_id})"
 
-
     # =============================================================================
     # AGENT OPERATIONS (Code Execution)
     # =============================================================================
@@ -756,7 +857,7 @@ class AsyncSandbox:
 
             # Get sandbox info to get agent URL
             info = await self.get_info()
-            agent_url = info.public_host.rstrip('/')
+            agent_url = info.public_host.rstrip("/")
 
             # Ensure JWT token is valid
             await self._ensure_valid_token()
@@ -777,7 +878,7 @@ class AsyncSandbox:
                 jwt_token=jwt_token_str,
                 timeout=60,
                 max_retries=3,
-                token_refresh_callback=refresh_token_callback
+                token_refresh_callback=refresh_token_callback,
             )
 
             # Wait for agent to be ready
@@ -789,10 +890,23 @@ class AsyncSandbox:
                     health = await self._agent_client.get("/health", operation="agent health check")
                     if health.get("status") == "healthy":
                         break
-                except Exception as e:
+                except Exception:
                     if attempt < max_wait - 1:
                         await asyncio.sleep(retry_delay)
                         continue
+
+    async def _ensure_ws_client(self) -> None:
+        """Ensure WebSocket client is initialized and agent is ready."""
+        if self._ws_client is None:
+            from ._ws_client import WebSocketClient
+
+            # First ensure agent HTTP client is ready (which waits for agent)
+            await self._ensure_agent_client()
+
+            info = await self.get_info()
+            agent_url = info.public_host.rstrip("/")
+            token = await self.get_token()
+            self._ws_client = WebSocketClient(agent_url, token)
 
     async def get_agent_info(self) -> Dict[str, Any]:
         """
@@ -910,7 +1024,7 @@ class AsyncSandbox:
             "language": language,
             "code": code,
             "workdir": working_dir,  # API expects "workdir" without underscore
-            "timeout": timeout_seconds
+            "timeout": timeout_seconds,
         }
 
         if env:
@@ -921,7 +1035,7 @@ class AsyncSandbox:
             json=payload,
             operation="execute code",
             context={"language": language},
-            timeout=timeout_seconds + 30  # Add buffer to HTTP timeout for network latency
+            timeout=timeout_seconds + 30,  # Add buffer to HTTP timeout for network latency
         )
 
         # Parse rich outputs using shared utility
@@ -933,7 +1047,7 @@ class AsyncSandbox:
             stderr=response.get("stderr", "") if response else "",
             exit_code=response.get("exit_code", 0) if response else 1,
             execution_time=response.get("execution_time", 0.0) if response else 0.0,
-            rich_outputs=rich_outputs
+            rich_outputs=rich_outputs,
         )
 
         return result
@@ -941,45 +1055,74 @@ class AsyncSandbox:
     async def run_code_async(
         self,
         code: str,
+        callback_url: str,
         *,
         language: str = "python",
-        timeout_seconds: int = 60,
+        timeout: int = 1800,
         env: Optional[Dict[str, str]] = None,
-    ) -> str:
+        working_dir: str = "/workspace",
+        callback_headers: Optional[Dict[str, str]] = None,
+        callback_signature_secret: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
-        Execute code asynchronously (non-blocking, returns execution ID).
+        Execute code asynchronously with webhook callback.
+
+        For long-running code (>5 minutes). Agent POSTs results to callback_url when complete.
+
+        Args:
+            code: Code to execute
+            callback_url: URL to POST results to when execution completes
+            language: Language (python, javascript, bash, go)
+            timeout: Execution timeout in seconds (default: 1800 = 30 min)
+            env: Optional environment variables
+            working_dir: Working directory (default: /workspace)
+            callback_headers: Custom headers to include in callback request
+            callback_signature_secret: Secret to sign callback payload (HMAC-SHA256)
 
         Returns:
-            Execution ID for tracking
+            Dict with execution_id, status, callback_url
+
+        Example:
+            >>> response = await sandbox.run_code_async(
+            ...     code='import time; time.sleep(600); print("Done!")',
+            ...     callback_url='https://app.com/webhooks/execution',
+            ...     callback_headers={'Authorization': 'Bearer secret'},
+            ...     callback_signature_secret='webhook-secret-123'
+            ... )
+            >>> print(f"Execution ID: {response['execution_id']}")
         """
         await self._ensure_agent_client()
 
         payload = {
-            "language": language,
             "code": code,
-            "timeout": timeout_seconds,
-            "async": True
+            "language": language,
+            "timeout": timeout,
+            "workdir": working_dir,
+            "callback_url": callback_url,
         }
 
         if env:
             payload["env"] = env
+        if callback_headers:
+            payload["callback_headers"] = callback_headers
+        if callback_signature_secret:
+            payload["callback_signature_secret"] = callback_signature_secret
 
         response = await self._agent_client.post(
-            "/execute",
+            "/execute/async",
             json=payload,
-            operation="execute code async"
+            operation="async execute code",
+            context={"language": language},
+            timeout=10,
         )
 
-        return response.get("execution_id", "")
+        return response
 
     async def list_processes(self) -> List[Dict[str, Any]]:
         """List running processes in sandbox."""
         await self._ensure_agent_client()
 
-        response = await self._agent_client.get(
-            "/processes",
-            operation="list processes"
-        )
+        response = await self._agent_client.get("/processes", operation="list processes")
 
         return response.get("processes", [])
 
@@ -990,7 +1133,7 @@ class AsyncSandbox:
         response = await self._agent_client.post(
             f"/processes/{process_id}/kill",
             operation="kill process",
-            context={"process_id": process_id}
+            context={"process_id": process_id},
         )
 
         return response
@@ -999,15 +1142,18 @@ class AsyncSandbox:
         """Get agent metrics snapshot."""
         await self._ensure_agent_client()
 
-        response = await self._agent_client.get(
-            "/metrics",
-            operation="get metrics"
-        )
+        response = await self._agent_client.get("/metrics", operation="get metrics")
 
         return response
 
     async def refresh_token(self) -> None:
-        """Refresh JWT token for agent authentication."""
+        """
+        Refresh JWT token for agent authentication.
+
+        Note: Avoid calling this method while WebSocket connections are being established
+        to prevent race conditions where a connection uses an old token. The SDK handles
+        token refresh automatically before it expires.
+        """
         response = await self._client.post(f"/v1/sandboxes/{self.sandbox_id}/token/refresh")
 
         # Store token using shared utility
@@ -1019,6 +1165,87 @@ class AsyncSandbox:
             if token_data:
                 self._agent_client.update_jwt_token(token_data.token)
 
+        # Update WebSocket client's JWT token if already initialized
+        if self._ws_client is not None:
+            token_data = get_cached_token(self.sandbox_id)
+            if token_data:
+                self._ws_client.update_jwt_token(token_data.token)
+
+    async def get_token(self) -> str:
+        """
+        Get current JWT token (for advanced use cases).
+        Automatically refreshes if needed.
+
+        Returns:
+            JWT token string
+
+        Raises:
+            HopxError: If no token available
+        """
+        await self._ensure_valid_token()
+
+        token_data = _token_cache.get(self.sandbox_id)
+        if token_data is None:
+            from .errors import HopxError
+
+            raise HopxError("No JWT token available for sandbox")
+
+        return token_data.token
+
+    async def run_code_background(
+        self,
+        code: str,
+        *,
+        language: str = "python",
+        timeout: int = 300,
+        env: Optional[Dict[str, str]] = None,
+        name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute code in background and return immediately.
+
+        Use list_processes() to check status and kill_process() to terminate.
+
+        Args:
+            code: Code to execute
+            language: Language (python, javascript, bash, go)
+            timeout: Execution timeout in seconds (default: 300 = 5 min)
+            env: Optional environment variables
+            name: Optional process name for identification
+
+        Returns:
+            Dict with process_id, execution_id, status
+
+        Example:
+            >>> result = await sandbox.run_code_background(
+            ...     code='long_running_task()',
+            ...     name='ml-training'
+            ... )
+            >>> process_id = result['process_id']
+        """
+        await self._ensure_agent_client()
+
+        payload = {
+            "code": code,
+            "language": language,
+            "timeout": timeout,
+        }
+
+        if env:
+            payload["env"] = env
+        if name:
+            payload["name"] = name
+
+        response = await self._agent_client.post(
+            "/execute/background",
+            json=payload,
+            operation="background execute code",
+            context={"language": language},
+            timeout=10,
+        )
+
+        return response
+
     # =============================================================================
     # PROPERTIES - Access to specialized operations
     # =============================================================================
@@ -1026,52 +1253,121 @@ class AsyncSandbox:
     @property
     def files(self):
         """Access file operations (lazy init)."""
-        if not hasattr(self, '_files'):
+        if not hasattr(self, "_files"):
             from ._async_files import AsyncFiles
+
             self._files = AsyncFiles(self)
         return self._files
 
     @property
     def commands(self):
         """Access command operations (lazy init)."""
-        if not hasattr(self, '_commands'):
+        if not hasattr(self, "_commands"):
             from ._async_commands import AsyncCommands
+
             self._commands = AsyncCommands(self)
         return self._commands
 
     @property
     def env(self):
         """Access environment variable operations (lazy init)."""
-        if not hasattr(self, '_env'):
+        if not hasattr(self, "_env"):
             from ._async_env_vars import AsyncEnvironmentVariables
+
             self._env = AsyncEnvironmentVariables(self)
         return self._env
 
     @property
     def cache(self):
         """Access cache operations (lazy init)."""
-        if not hasattr(self, '_cache'):
+        if not hasattr(self, "_cache"):
             from ._async_cache import AsyncCache
+
             self._cache = AsyncCache(self)
         return self._cache
 
     @property
     def terminal(self):
         """Access terminal operations (lazy init)."""
-        if not hasattr(self, '_terminal'):
+        if not hasattr(self, "_terminal"):
             from ._async_terminal import AsyncTerminal
+
             self._terminal = AsyncTerminal(self)
         return self._terminal
 
-    async def run_code_stream(self, code: str, *, language: str = "python", timeout_seconds: int = 60):
+    async def run_code_stream(
+        self,
+        code: str,
+        *,
+        language: str = "python",
+        timeout: int = 60,
+        env: Optional[Dict[str, str]] = None,
+        working_dir: str = "/workspace",
+    ) -> AsyncIterator[Dict[str, Any]]:
         """
-        Stream code execution output (async generator).
+        Execute code with real-time output streaming via WebSocket.
 
-        Yields stdout/stderr as they're produced.
+        Stream stdout/stderr as it's generated (async generator).
+
+        Args:
+            code: Code to execute
+            language: Language (python, javascript, bash, go)
+            timeout: Execution timeout in seconds
+            env: Optional environment variables
+            working_dir: Working directory
+
+        Yields:
+            Message dictionaries:
+            - {"type": "stdout", "data": "...", "timestamp": "..."}
+            - {"type": "stderr", "data": "...", "timestamp": "..."}
+            - {"type": "result", "exit_code": 0, "execution_time": 1.23}
+            - {"type": "complete", "success": True}
+
+        Note:
+            Requires websockets library: pip install websockets
+
+        Example:
+            >>> import asyncio
+            >>>
+            >>> async def stream_execution():
+            ...     async with AsyncSandbox.create(template="code-interpreter") as sandbox:
+            ...
+            ...         code = '''
+            ...         import time
+            ...         for i in range(5):
+            ...             print(f"Step {i+1}/5")
+            ...             time.sleep(1)
+            ...         '''
+            ...
+            ...         async for message in sandbox.run_code_stream(code):
+            ...             if message['type'] == 'stdout':
+            ...                 print(message['data'], end='')
+            ...             elif message['type'] == 'result':
+            ...                 print(f"\\nExit code: {message['exit_code']}")
+            >>>
+            >>> asyncio.run(stream_execution())
         """
-        await self._ensure_agent_client()
+        await self._ensure_ws_client()
 
-        # For now, return regular execution result
-        # TODO: Implement WebSocket streaming for async
-        result = await self.run_code(code, language=language, timeout_seconds=timeout_seconds)
-        yield result.stdout
+        # Connect to streaming endpoint
+        async with await self._ws_client.connect("/execute/stream") as ws:
+            # Send execution request
+            request = {
+                "type": "execute",
+                "code": code,
+                "language": language,
+                "timeout": timeout,
+                "workdir": working_dir,  # API expects "workdir" without underscore
+            }
+            if env:
+                request["env"] = env
+
+            await self._ws_client.send_message(ws, request)
+
+            # Stream messages
+            async for message in self._ws_client.iter_messages(ws):
+                yield message
+
+                # Stop on complete
+                if message.get("type") == "complete":
+                    break

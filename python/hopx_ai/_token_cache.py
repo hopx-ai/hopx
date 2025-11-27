@@ -34,6 +34,7 @@ class TokenData:
         >>> token_data.token[:10]
         'eyJhbG...'
     """
+
     token: str
     expires_at: datetime
 
@@ -67,9 +68,7 @@ def store_token_from_response(sandbox_id: str, response: Dict[str, Any]) -> None
     if "auth_token" in response and "token_expires_at" in response:
         _token_cache[sandbox_id] = TokenData(
             token=response["auth_token"],
-            expires_at=datetime.fromisoformat(
-                response["token_expires_at"].replace("Z", "+00:00")
-            )
+            expires_at=datetime.fromisoformat(response["token_expires_at"].replace("Z", "+00:00")),
         )
 
 

@@ -53,29 +53,50 @@ export class WSClient {
   }
 
   /**
-   * Receive JSON message
+   * Receive JSON message with empty message protection
    */
   async receive(ws: WebSocket): Promise<any> {
     return new Promise((resolve, reject) => {
-      ws.once('message', (data) => {
+      const onMessage = (data: WebSocket.Data) => {
         try {
-          resolve(JSON.parse(data.toString()));
+          // Convert to string
+          const message = typeof data === 'string' ? data : data.toString('utf-8');
+
+          // Skip empty messages
+          if (!message || !message.trim()) {
+            // Re-attach listener for next message
+            ws.once('message', onMessage);
+            return;
+          }
+
+          // Parse JSON
+          try {
+            resolve(JSON.parse(message));
+          } catch (parseError) {
+            // Log invalid JSON and wait for next message
+            console.warn(`Skipping invalid JSON: ${message.slice(0, 100)}`);
+            ws.once('message', onMessage);
+          }
         } catch (error) {
           reject(error);
         }
-      });
+      };
+
+      ws.once('message', onMessage);
       ws.once('error', reject);
     });
   }
 
   /**
-   * Async iterator for messages
+   * Async iterator for messages with empty message protection
    */
   async *messages(ws: WebSocket): AsyncIterableIterator<any> {
     while (ws.readyState === WebSocket.OPEN) {
       try {
         const message = await this.receive(ws);
-        yield message;
+        if (message !== undefined) {
+          yield message;
+        }
       } catch (error) {
         break;
       }

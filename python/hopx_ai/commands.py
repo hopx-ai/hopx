@@ -12,39 +12,39 @@ logger = logging.getLogger(__name__)
 class Commands(_CommandsBase):
     """
     Command execution resource.
-    
+
     Provides methods for running shell commands inside the sandbox.
-    
+
     Features:
     - Automatic retry with exponential backoff
-    - Connection pooling for efficiency  
+    - Connection pooling for efficiency
     - Proper error handling
     - Configurable timeouts
-    
+
     Example:
         >>> sandbox = Sandbox.create(template="code-interpreter")
-        >>> 
+        >>>
         >>> # Run simple command
         >>> result = sandbox.commands.run('ls -la /workspace')
         >>> print(result.stdout)
-        >>> 
+        >>>
         >>> # Check success
         >>> if result.success:
         ...     print("Command succeeded!")
         ... else:
         ...     print(f"Failed: {result.stderr}")
     """
-    
+
     def __init__(self, client: AgentHTTPClient):
         """
         Initialize Commands resource.
-        
+
         Args:
             client: Shared agent HTTP client
         """
         self._client = client
         logger.debug("Commands resource initialized")
-    
+
     def run(
         self,
         command: str,
@@ -101,30 +101,30 @@ class Commands(_CommandsBase):
 
         # Build request payload using base class
         payload = self._build_run_payload(command, timeout, working_dir, env)
-        
+
         response = self._client.post(
             "/commands/run",
             json=payload,
             operation="run command",
             context={"command": command},
-            timeout=timeout + 30  # Add buffer to HTTP timeout for network latency
+            timeout=timeout + 30,  # Add buffer to HTTP timeout for network latency
         )
-        
+
         data = response.json()
-        
+
         return CommandResult(
             stdout=data.get("stdout", ""),
             stderr=data.get("stderr", ""),
             exit_code=data.get("exit_code", 0),
-            execution_time=data.get("execution_time", 0.0)
+            execution_time=data.get("execution_time", 0.0),
         )
-    
+
     def _run_background(
         self,
         command: str,
         timeout: int = 120,
         env: Optional[Dict[str, str]] = None,
-        working_dir: str = "/workspace"
+        working_dir: str = "/workspace",
     ) -> CommandResult:
         """
         Run command in background.
@@ -148,7 +148,7 @@ class Commands(_CommandsBase):
             json=payload,
             operation="run background command",
             context={"command": command},
-            timeout=10
+            timeout=10,
         )
 
         data = response.json()
@@ -158,8 +158,8 @@ class Commands(_CommandsBase):
             stdout=f"Background process started: {data.get('process_id', 'unknown')}",
             stderr="",
             exit_code=0,
-            execution_time=0.0
+            execution_time=0.0,
         )
-    
+
     def __repr__(self) -> str:
         return f"<Commands client={self._client}>"

@@ -8,7 +8,7 @@ All models are type-safe Pydantic v2 models with built-in validation.
 
 Usage:
     from hopx_ai._generated import ExecuteRequest, ExecuteResponse
-    
+
     request = ExecuteRequest(code="print('hello')", language="python")
     # Pydantic validates automatically!
 """

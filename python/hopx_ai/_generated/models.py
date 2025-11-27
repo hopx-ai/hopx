@@ -20,17 +20,17 @@ class Features(BaseModel):
     ipython_kernel: Optional[bool] = None
     system_metrics: Optional[bool] = None
     languages: Annotated[
-        Optional[List[str]], Field(examples=[['python', 'javascript', 'bash', 'go']])
+        Optional[List[str]], Field(examples=[["python", "javascript", "bash", "go"]])
     ] = None
 
 
 class HealthResponse(BaseModel):
-    status: Annotated[Optional[str], Field(examples=['healthy'])] = None
-    agent: Annotated[Optional[str], Field(examples=['hopx-vm-agent-desktop'])] = None
-    version: Annotated[Optional[str], Field(examples=['3.1.1'])] = None
-    uptime: Annotated[Optional[str], Field(examples=['2h34m12s'])] = None
-    go_version: Annotated[Optional[str], Field(examples=['go1.22.2'])] = None
-    vm_id: Annotated[Optional[str], Field(examples=['1760954509layu9lw0'])] = None
+    status: Annotated[Optional[str], Field(examples=["healthy"])] = None
+    agent: Annotated[Optional[str], Field(examples=["hopx-vm-agent-desktop"])] = None
+    version: Annotated[Optional[str], Field(examples=["3.1.1"])] = None
+    uptime: Annotated[Optional[str], Field(examples=["2h34m12s"])] = None
+    go_version: Annotated[Optional[str], Field(examples=["go1.22.2"])] = None
+    vm_id: Annotated[Optional[str], Field(examples=["1760954509layu9lw0"])] = None
     features: Optional[Features] = None
     active_streams: Annotated[Optional[int], Field(examples=[0])] = None
 
@@ -45,11 +45,11 @@ class InfoResponse(BaseModel):
     vm_ip: Optional[str] = None
     vm_port: Optional[str] = None
     start_time: Optional[AwareDatetime] = None
-    uptime: Annotated[Optional[float], Field(description='Uptime in seconds')] = None
+    uptime: Annotated[Optional[float], Field(description="Uptime in seconds")] = None
     endpoints: Annotated[
-        Optional[Dict[str, str]], Field(description='Map of endpoint names to HTTP methods + paths')
+        Optional[Dict[str, str]], Field(description="Map of endpoint names to HTTP methods + paths")
     ] = None
-    features: Annotated[Optional[Dict[str, Any]], Field(description='Available features')] = None
+    features: Annotated[Optional[Dict[str, Any]], Field(description="Available features")] = None
 
 
 class Cpu(BaseModel):
@@ -75,78 +75,78 @@ class SystemMetrics(BaseModel):
     cpu: Optional[Cpu] = None
     memory: Optional[Memory] = None
     disk: Optional[Disk] = None
-    uptime: Annotated[Optional[float], Field(description='System uptime in seconds')] = None
+    uptime: Annotated[Optional[float], Field(description="System uptime in seconds")] = None
 
 
 class Language(Enum):
-    PYTHON = 'python'
-    PYTHON3 = 'python3'
-    NODE = 'node'
-    NODEJS = 'nodejs'
-    JAVASCRIPT = 'javascript'
-    JS = 'js'
-    BASH = 'bash'
-    SH = 'sh'
-    SHELL = 'shell'
-    GO = 'go'
+    PYTHON = "python"
+    PYTHON3 = "python3"
+    NODE = "node"
+    NODEJS = "nodejs"
+    JAVASCRIPT = "javascript"
+    JS = "js"
+    BASH = "bash"
+    SH = "sh"
+    SHELL = "shell"
+    GO = "go"
 
 
 class ExecuteRequest(BaseModel):
-    code: Annotated[str, Field(description='Code to execute', examples=['print("Hello, World!")'])]
-    language: Annotated[Language, Field(description='Programming language', examples=['python'])]
+    code: Annotated[str, Field(description="Code to execute", examples=['print("Hello, World!")'])]
+    language: Annotated[Language, Field(description="Programming language", examples=["python"])]
     env: Annotated[
         Optional[Dict[str, str]],
         Field(
             description='Optional environment variables for this execution only.\n\n**Priority**: Request env > Global env > Agent env\n\n**Example**: `{"DATABASE_URL": "postgres://localhost/app", "DEBUG": "true"}`\n',
-            examples=[{'DATABASE_URL': 'postgres://localhost/testdb', 'DEBUG': 'true'}],
+            examples=[{"DATABASE_URL": "postgres://localhost/testdb", "DEBUG": "true"}],
         ),
     ] = None
-    timeout: Annotated[Optional[int], Field(description='Timeout in seconds', ge=1, le=300)] = 30
+    timeout: Annotated[Optional[int], Field(description="Timeout in seconds", ge=1, le=300)] = 30
 
 
 class ExecuteResponse(BaseModel):
-    stdout: Annotated[Optional[str], Field(description='Standard output')] = None
-    stderr: Annotated[Optional[str], Field(description='Standard error')] = None
-    exit_code: Annotated[Optional[int], Field(description='Exit code (0 = success)')] = None
-    execution_time: Annotated[Optional[float], Field(description='Execution time in seconds')] = (
+    stdout: Annotated[Optional[str], Field(description="Standard output")] = None
+    stderr: Annotated[Optional[str], Field(description="Standard error")] = None
+    exit_code: Annotated[Optional[int], Field(description="Exit code (0 = success)")] = None
+    execution_time: Annotated[Optional[float], Field(description="Execution time in seconds")] = (
         None
     )
     timestamp: Optional[AwareDatetime] = None
     language: Optional[str] = None
     success: Annotated[
-        Optional[bool], Field(description='Whether execution succeeded (exit_code == 0)')
+        Optional[bool], Field(description="Whether execution succeeded (exit_code == 0)")
     ] = None
 
 
 class BackgroundExecuteRequest(ExecuteRequest):
     name: Annotated[
-        Optional[str], Field(description='Optional process name for identification')
+        Optional[str], Field(description="Optional process name for identification")
     ] = None
 
 
 class Status(Enum):
-    running = 'running'
-    completed = 'completed'
-    failed = 'failed'
-    killed = 'killed'
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    killed = "killed"
 
 
 class BackgroundExecuteResponse(BaseModel):
-    process_id: Annotated[Optional[str], Field(description='Unique process identifier')] = None
-    execution_id: Annotated[Optional[str], Field(description='Execution identifier')] = None
+    process_id: Annotated[Optional[str], Field(description="Unique process identifier")] = None
+    execution_id: Annotated[Optional[str], Field(description="Execution identifier")] = None
     status: Optional[Status] = None
     start_time: Optional[AwareDatetime] = None
     message: Optional[str] = None
-    name: Annotated[Optional[str], Field(description='Process name (if provided)')] = None
+    name: Annotated[Optional[str], Field(description="Process name (if provided)")] = None
 
 
 class Status1(Enum):
-    queued = 'queued'
+    queued = "queued"
 
 
 class AsyncExecuteResponse(BaseModel):
     execution_id: Annotated[
-        Optional[str], Field(description='Unique execution identifier', examples=['abc123-def456'])
+        Optional[str], Field(description="Unique execution identifier", examples=["abc123-def456"])
     ] = None
     status: Annotated[
         Optional[Status1], Field(description='Execution status (always "queued" initially)')
@@ -154,52 +154,52 @@ class AsyncExecuteResponse(BaseModel):
     callback_url: Annotated[
         Optional[AnyUrl],
         Field(
-            description='URL that will receive execution results',
-            examples=['https://client.com/webhooks/execution'],
+            description="URL that will receive execution results",
+            examples=["https://client.com/webhooks/execution"],
         ),
     ] = None
     message: Annotated[
         Optional[str],
         Field(
-            description='Human-readable message',
-            examples=['Execution queued. Will POST to callback_url when complete.'],
+            description="Human-readable message",
+            examples=["Execution queued. Will POST to callback_url when complete."],
         ),
     ] = None
-    timestamp: Annotated[Optional[AwareDatetime], Field(description='Queue timestamp')] = None
+    timestamp: Annotated[Optional[AwareDatetime], Field(description="Queue timestamp")] = None
 
 
 class Status2(Enum):
-    COMPLETED = 'completed'
-    FAILED = 'failed'
-    TIMEOUT = 'timeout'
+    COMPLETED = "completed"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
 
 
 class WebhookExecutionComplete(BaseModel):
     execution_id: Annotated[
         Optional[str],
         Field(
-            description='Execution identifier (matches AsyncExecuteResponse)',
-            examples=['abc123-def456'],
+            description="Execution identifier (matches AsyncExecuteResponse)",
+            examples=["abc123-def456"],
         ),
     ] = None
-    status: Annotated[Optional[Status2], Field(description='Final execution status')] = None
-    stdout: Annotated[Optional[str], Field(description='Standard output')] = None
-    stderr: Annotated[Optional[str], Field(description='Standard error')] = None
-    exit_code: Annotated[Optional[int], Field(description='Exit code (0 = success)')] = None
+    status: Annotated[Optional[Status2], Field(description="Final execution status")] = None
+    stdout: Annotated[Optional[str], Field(description="Standard output")] = None
+    stderr: Annotated[Optional[str], Field(description="Standard error")] = None
+    exit_code: Annotated[Optional[int], Field(description="Exit code (0 = success)")] = None
     execution_time: Annotated[
-        Optional[float], Field(description='Execution time in seconds', examples=[600.123])
+        Optional[float], Field(description="Execution time in seconds", examples=[600.123])
     ] = None
-    timestamp: Annotated[Optional[AwareDatetime], Field(description='Completion timestamp')] = None
+    timestamp: Annotated[Optional[AwareDatetime], Field(description="Completion timestamp")] = None
     error: Annotated[
         Optional[str], Field(description='Error message (if status is "failed" or "timeout")')
     ] = None
 
 
 class Status3(Enum):
-    running = 'running'
-    completed = 'completed'
-    failed = 'failed'
-    killed = 'killed'
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    killed = "killed"
 
 
 class ProcessInfo(BaseModel):
@@ -211,8 +211,8 @@ class ProcessInfo(BaseModel):
     start_time: Optional[AwareDatetime] = None
     end_time: Optional[AwareDatetime] = None
     exit_code: Optional[int] = None
-    duration: Annotated[Optional[float], Field(description='Duration in seconds')] = None
-    pid: Annotated[Optional[int], Field(description='System process ID')] = None
+    duration: Annotated[Optional[float], Field(description="Duration in seconds")] = None
+    pid: Annotated[Optional[int], Field(description="System process ID")] = None
 
 
 class ProcessListResponse(BaseModel):
@@ -222,24 +222,24 @@ class ProcessListResponse(BaseModel):
 
 
 class Type(Enum):
-    image_png = 'image/png'
-    text_html = 'text/html'
-    application_json = 'application/json'
-    application_vnd_dataframe_json = 'application/vnd.dataframe+json'  # Pandas dataframe
+    image_png = "image/png"
+    text_html = "text/html"
+    application_json = "application/json"
+    application_vnd_dataframe_json = "application/vnd.dataframe+json"  # Pandas dataframe
 
 
 class Format(Enum):
-    base64 = 'base64'
-    html = 'html'
-    json = 'json'
+    base64 = "base64"
+    html = "html"
+    json = "json"
 
 
 class Source(Enum):
-    matplotlib = 'matplotlib'
-    pandas = 'pandas'
-    plotly = 'plotly'
-    pandas_stdout = 'pandas_stdout'  # Pandas to stdout
-    other = 'other'
+    matplotlib = "matplotlib"
+    pandas = "pandas"
+    plotly = "plotly"
+    pandas_stdout = "pandas_stdout"  # Pandas to stdout
+    other = "other"
 
 
 class Metadata(BaseModel):
@@ -249,10 +249,11 @@ class Metadata(BaseModel):
 
 
 class RichOutput(BaseModel):
-    type: Annotated[Optional[Type], Field(description='MIME type')] = None
+    type: Annotated[Optional[Type], Field(description="MIME type")] = None
     format: Optional[Format] = None
     data: Annotated[
-        Optional[Union[str, Dict[str, Any]]], Field(description='Output data (base64 for images, HTML for tables, dict for dataframes)')
+        Optional[Union[str, Dict[str, Any]]],
+        Field(description="Output data (base64 for images, HTML for tables, dict for dataframes)"),
     ] = None
     metadata: Optional[Metadata] = None
 
@@ -270,12 +271,12 @@ class EnvVarsSetRequest(BaseModel):
     env_vars: Annotated[
         Dict[str, str],
         Field(
-            description='Environment variables as key-value pairs',
+            description="Environment variables as key-value pairs",
             examples=[
                 {
-                    'DATABASE_URL': 'postgres://prod-db/app',
-                    'API_KEY': 'sk-1234567890abcdef',
-                    'ENVIRONMENT': 'production',
+                    "DATABASE_URL": "postgres://prod-db/app",
+                    "API_KEY": "sk-1234567890abcdef",
+                    "ENVIRONMENT": "production",
                 }
             ],
         ),
@@ -283,13 +284,13 @@ class EnvVarsSetRequest(BaseModel):
     timestamp: Annotated[
         Optional[AwareDatetime],
         Field(
-            description='Optional timestamp for deduplication (prevents old requests from overwriting new ones)'
+            description="Optional timestamp for deduplication (prevents old requests from overwriting new ones)"
         ),
     ] = None
     merge: Annotated[
         Optional[bool],
         Field(
-            description='If true, merge with existing env vars. If false (default), replace all.\n\n**Note**: PATCH /env always merges, PUT /env always replaces (this field is ignored for those endpoints)\n'
+            description="If true, merge with existing env vars. If false (default), replace all.\n\n**Note**: PATCH /env always merges, PUT /env always replaces (this field is ignored for those endpoints)\n"
         ),
     ] = False
 
@@ -298,110 +299,110 @@ class EnvVarsResponse(BaseModel):
     env_vars: Annotated[
         Optional[Dict[str, str]],
         Field(
-            description='Environment variables as key-value pairs.\n\n**Security**: Sensitive values (containing KEY, SECRET, PASSWORD, TOKEN, etc.) are masked.\n',
+            description="Environment variables as key-value pairs.\n\n**Security**: Sensitive values (containing KEY, SECRET, PASSWORD, TOKEN, etc.) are masked.\n",
             examples=[
                 {
-                    'DATABASE_URL': 'postgres://localhost/app',
-                    'API_KEY': '***MASKED***',
-                    'DEBUG': 'true',
+                    "DATABASE_URL": "postgres://localhost/app",
+                    "API_KEY": "***MASKED***",
+                    "DEBUG": "true",
                 }
             ],
         ),
     ] = None
     count: Annotated[
-        Optional[int], Field(description='Number of environment variables', examples=[3])
+        Optional[int], Field(description="Number of environment variables", examples=[3])
     ] = None
-    timestamp: Annotated[Optional[AwareDatetime], Field(description='Response timestamp')] = None
+    timestamp: Annotated[Optional[AwareDatetime], Field(description="Response timestamp")] = None
 
 
 class FileInfo(BaseModel):
-    name: Annotated[Optional[str], Field(description='File or directory name')] = None
-    path: Annotated[Optional[str], Field(description='Full path')] = None
-    size: Annotated[Optional[int], Field(description='Size in bytes')] = None
+    name: Annotated[Optional[str], Field(description="File or directory name")] = None
+    path: Annotated[Optional[str], Field(description="Full path")] = None
+    size: Annotated[Optional[int], Field(description="Size in bytes")] = None
     is_directory: Optional[bool] = None
     modified_time: Optional[AwareDatetime] = None
     permissions: Annotated[
-        Optional[str], Field(description='Unix permissions (e.g., drwxr-xr-x)')
+        Optional[str], Field(description="Unix permissions (e.g., drwxr-xr-x)")
     ] = None
 
 
 class FileListResponse(BaseModel):
     files: Optional[List[FileInfo]] = None
-    path: Annotated[Optional[str], Field(description='Directory path')] = None
-    count: Annotated[Optional[int], Field(description='Number of files')] = None
+    path: Annotated[Optional[str], Field(description="Directory path")] = None
+    count: Annotated[Optional[int], Field(description="Number of files")] = None
 
 
 class FileContentResponse(BaseModel):
-    content: Annotated[Optional[str], Field(description='File contents')] = None
+    content: Annotated[Optional[str], Field(description="File contents")] = None
     path: Optional[str] = None
-    size: Annotated[Optional[int], Field(description='Size in bytes')] = None
+    size: Annotated[Optional[int], Field(description="Size in bytes")] = None
 
 
 class FileWriteRequest(BaseModel):
-    path: Annotated[str, Field(description='File path to write', examples=['/workspace/script.py'])]
-    content: Annotated[str, Field(description='File contents')]
+    path: Annotated[str, Field(description="File path to write", examples=["/workspace/script.py"])]
+    content: Annotated[str, Field(description="File contents")]
 
 
 class FileResponse(BaseModel):
     message: Optional[str] = None
     path: Optional[str] = None
     success: Optional[bool] = None
-    size: Annotated[Optional[int], Field(description='File size (for write operations)')] = None
+    size: Annotated[Optional[int], Field(description="File size (for write operations)")] = None
     timestamp: Optional[AwareDatetime] = None
 
 
 class VNCInfo(BaseModel):
     url: Annotated[
-        Optional[str], Field(description='VNC connection URL', examples=['vnc://vm.hopx.dev:5901'])
+        Optional[str], Field(description="VNC connection URL", examples=["vnc://vm.hopx.dev:5901"])
     ] = None
-    password: Annotated[Optional[str], Field(description='VNC password')] = None
-    display: Annotated[Optional[int], Field(description='X11 display number', examples=[1])] = None
-    port: Annotated[Optional[int], Field(description='VNC port', examples=[5901])] = None
+    password: Annotated[Optional[str], Field(description="VNC password")] = None
+    display: Annotated[Optional[int], Field(description="X11 display number", examples=[1])] = None
+    port: Annotated[Optional[int], Field(description="VNC port", examples=[5901])] = None
     websocket_url: Annotated[
-        Optional[str], Field(description='noVNC WebSocket URL (if available)')
+        Optional[str], Field(description="noVNC WebSocket URL (if available)")
     ] = None
 
 
 class WindowInfo(BaseModel):
-    id: Annotated[Optional[int], Field(description='Window ID (X11 window identifier)')] = None
+    id: Annotated[Optional[int], Field(description="Window ID (X11 window identifier)")] = None
     title: Annotated[
-        Optional[str], Field(description='Window title', examples=['Firefox - Mozilla Firefox'])
+        Optional[str], Field(description="Window title", examples=["Firefox - Mozilla Firefox"])
     ] = None
-    x: Annotated[Optional[int], Field(description='X coordinate')] = None
-    y: Annotated[Optional[int], Field(description='Y coordinate')] = None
-    width: Annotated[Optional[int], Field(description='Window width')] = None
-    height: Annotated[Optional[int], Field(description='Window height')] = None
+    x: Annotated[Optional[int], Field(description="X coordinate")] = None
+    y: Annotated[Optional[int], Field(description="Y coordinate")] = None
+    width: Annotated[Optional[int], Field(description="Window width")] = None
+    height: Annotated[Optional[int], Field(description="Window height")] = None
     is_active: Annotated[
-        Optional[bool], Field(description='Whether this window is currently active')
+        Optional[bool], Field(description="Whether this window is currently active")
     ] = None
     is_minimized: Annotated[
-        Optional[bool], Field(description='Whether this window is minimized')
+        Optional[bool], Field(description="Whether this window is minimized")
     ] = None
-    pid: Annotated[Optional[int], Field(description='Process ID owning this window')] = None
+    pid: Annotated[Optional[int], Field(description="Process ID owning this window")] = None
 
 
 class Status4(Enum):
-    RECORDING = 'recording'
-    STOPPED = 'stopped'
-    FAILED = 'failed'
+    RECORDING = "recording"
+    STOPPED = "stopped"
+    FAILED = "failed"
 
 
 class Format1(Enum):
-    MP4 = 'mp4'
-    WEBM = 'webm'
+    MP4 = "mp4"
+    WEBM = "webm"
 
 
 class RecordingInfo(BaseModel):
-    recording_id: Annotated[Optional[str], Field(description='Unique recording identifier')] = None
-    status: Annotated[Optional[Status4], Field(description='Recording status')] = None
-    start_time: Annotated[Optional[AwareDatetime], Field(description='Recording start time')] = None
+    recording_id: Annotated[Optional[str], Field(description="Unique recording identifier")] = None
+    status: Annotated[Optional[Status4], Field(description="Recording status")] = None
+    start_time: Annotated[Optional[AwareDatetime], Field(description="Recording start time")] = None
     end_time: Annotated[
-        Optional[AwareDatetime], Field(description='Recording end time (if stopped)')
+        Optional[AwareDatetime], Field(description="Recording end time (if stopped)")
     ] = None
-    duration: Annotated[Optional[float], Field(description='Recording duration in seconds')] = None
-    file_path: Annotated[Optional[str], Field(description='Path to recorded video file')] = None
-    file_size: Annotated[Optional[int], Field(description='Video file size in bytes')] = None
-    format: Annotated[Optional[Format1], Field(description='Video format')] = None
+    duration: Annotated[Optional[float], Field(description="Recording duration in seconds")] = None
+    file_path: Annotated[Optional[str], Field(description="Path to recorded video file")] = None
+    file_size: Annotated[Optional[int], Field(description="Video file size in bytes")] = None
+    format: Annotated[Optional[Format1], Field(description="Video format")] = None
 
 
 class Display(BaseModel):
@@ -414,89 +415,89 @@ class Display(BaseModel):
 
 class DisplayInfo(BaseModel):
     width: Annotated[
-        Optional[int], Field(description='Display width in pixels', examples=[1920])
+        Optional[int], Field(description="Display width in pixels", examples=[1920])
     ] = None
     height: Annotated[
-        Optional[int], Field(description='Display height in pixels', examples=[1080])
+        Optional[int], Field(description="Display height in pixels", examples=[1080])
     ] = None
     depth: Annotated[
-        Optional[int], Field(description='Color depth (bits per pixel)', examples=[24])
+        Optional[int], Field(description="Color depth (bits per pixel)", examples=[24])
     ] = None
     refresh_rate: Annotated[
-        Optional[int], Field(description='Refresh rate in Hz', examples=[60])
+        Optional[int], Field(description="Refresh rate in Hz", examples=[60])
     ] = None
     displays: Annotated[
         Optional[List[Display]],
-        Field(description='List of available displays (multi-monitor support)'),
+        Field(description="List of available displays (multi-monitor support)"),
     ] = None
 
 
 class Format2(Enum):
-    png = 'png'
-    jpeg = 'jpeg'
+    png = "png"
+    jpeg = "jpeg"
 
 
 class ScreenshotResponse(BaseModel):
-    image: Annotated[Optional[str], Field(description='Base64-encoded image data')] = None
-    format: Annotated[Optional[Format2], Field(description='Image format')] = None
-    width: Annotated[Optional[int], Field(description='Image width in pixels')] = None
-    height: Annotated[Optional[int], Field(description='Image height in pixels')] = None
-    size: Annotated[Optional[int], Field(description='Image size in bytes')] = None
-    timestamp: Annotated[Optional[AwareDatetime], Field(description='Screenshot timestamp')] = None
+    image: Annotated[Optional[str], Field(description="Base64-encoded image data")] = None
+    format: Annotated[Optional[Format2], Field(description="Image format")] = None
+    width: Annotated[Optional[int], Field(description="Image width in pixels")] = None
+    height: Annotated[Optional[int], Field(description="Image height in pixels")] = None
+    size: Annotated[Optional[int], Field(description="Image size in bytes")] = None
+    timestamp: Annotated[Optional[AwareDatetime], Field(description="Screenshot timestamp")] = None
 
 
 class MetricsSnapshot(BaseModel):
-    uptime_seconds: Annotated[Optional[float], Field(description='Agent uptime in seconds')] = None
-    total_requests: Annotated[Optional[int], Field(description='Total HTTP requests handled')] = (
+    uptime_seconds: Annotated[Optional[float], Field(description="Agent uptime in seconds")] = None
+    total_requests: Annotated[Optional[int], Field(description="Total HTTP requests handled")] = (
         None
     )
-    total_errors: Annotated[Optional[int], Field(description='Total errors encountered')] = None
+    total_errors: Annotated[Optional[int], Field(description="Total errors encountered")] = None
     active_executions: Annotated[
-        Optional[int], Field(description='Current active code executions')
+        Optional[int], Field(description="Current active code executions")
     ] = None
     total_executions: Annotated[
-        Optional[int], Field(description='Total code executions completed')
+        Optional[int], Field(description="Total code executions completed")
     ] = None
 
 
 class Code(Enum):
-    METHOD_NOT_ALLOWED = 'METHOD_NOT_ALLOWED'
-    INVALID_JSON = 'INVALID_JSON'
-    MISSING_PARAMETER = 'MISSING_PARAMETER'
-    PATH_NOT_ALLOWED = 'PATH_NOT_ALLOWED'
-    FILE_NOT_FOUND = 'FILE_NOT_FOUND'
-    PERMISSION_DENIED = 'PERMISSION_DENIED'
-    COMMAND_FAILED = 'COMMAND_FAILED'
-    EXECUTION_TIMEOUT = 'EXECUTION_TIMEOUT'
-    EXECUTION_FAILED = 'EXECUTION_FAILED'
-    INTERNAL_ERROR = 'INTERNAL_ERROR'
-    INVALID_PATH = 'INVALID_PATH'
-    FILE_ALREADY_EXISTS = 'FILE_ALREADY_EXISTS'
-    DIRECTORY_NOT_FOUND = 'DIRECTORY_NOT_FOUND'
-    INVALID_REQUEST = 'INVALID_REQUEST'
-    PROCESS_NOT_FOUND = 'PROCESS_NOT_FOUND'
-    DESKTOP_NOT_AVAILABLE = 'DESKTOP_NOT_AVAILABLE'
+    METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED"
+    INVALID_JSON = "INVALID_JSON"
+    MISSING_PARAMETER = "MISSING_PARAMETER"
+    PATH_NOT_ALLOWED = "PATH_NOT_ALLOWED"
+    FILE_NOT_FOUND = "FILE_NOT_FOUND"
+    PERMISSION_DENIED = "PERMISSION_DENIED"
+    COMMAND_FAILED = "COMMAND_FAILED"
+    EXECUTION_TIMEOUT = "EXECUTION_TIMEOUT"
+    EXECUTION_FAILED = "EXECUTION_FAILED"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    INVALID_PATH = "INVALID_PATH"
+    FILE_ALREADY_EXISTS = "FILE_ALREADY_EXISTS"
+    DIRECTORY_NOT_FOUND = "DIRECTORY_NOT_FOUND"
+    INVALID_REQUEST = "INVALID_REQUEST"
+    PROCESS_NOT_FOUND = "PROCESS_NOT_FOUND"
+    DESKTOP_NOT_AVAILABLE = "DESKTOP_NOT_AVAILABLE"
 
 
 class ErrorResponse(BaseModel):
     error: Annotated[
-        str, Field(description='Human-readable error message', examples=['File not found'])
+        str, Field(description="Human-readable error message", examples=["File not found"])
     ]
     code: Annotated[
         Optional[Code],
-        Field(description='Machine-readable error code', examples=['FILE_NOT_FOUND']),
+        Field(description="Machine-readable error code", examples=["FILE_NOT_FOUND"]),
     ] = None
     request_id: Annotated[
         Optional[str],
         Field(
-            description='Request ID for tracing (from X-Request-ID header)',
-            examples=['550e8400-e29b-41d4-a716-446655440000'],
+            description="Request ID for tracing (from X-Request-ID header)",
+            examples=["550e8400-e29b-41d4-a716-446655440000"],
         ),
     ] = None
     timestamp: AwareDatetime
     path: Annotated[
-        Optional[str], Field(description='Related file path (for file operation errors)')
+        Optional[str], Field(description="Related file path (for file operation errors)")
     ] = None
-    details: Annotated[Optional[Dict[str, Any]], Field(description='Additional error context')] = (
+    details: Annotated[Optional[Dict[str, Any]], Field(description="Additional error context")] = (
         None
     )

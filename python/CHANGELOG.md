@@ -5,6 +5,118 @@ All notable changes to the Hopx Python SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2025-11-27
+
+### Fixed
+
+**Binary File Base64 Decoding (#33)**
+
+Fixed binary file round-trip issue where `read_bytes()` and `download()` returned base64-encoded strings instead of decoded binary data.
+
+**Root Cause**: The Agent API stores files written via `write_bytes(encoding="base64")` as base64 text. The `/files/download` endpoint returns this base64 text as bytes without decoding it first, breaking round-trip compatibility.
+
+**Solution**: Detect and decode base64 content automatically in `read_bytes()` and `download()`:
+- Attempt to decode content as base64
+- Verify by re-encoding: if encoded result matches original, use decoded data
+- Otherwise, return raw content (handles non-base64 files and raw binary)
+
+**Behavior**:
+- `write_bytes(b'\x00\x01\x02')` → API stores as base64 → `read_bytes()` → returns `b'\x00\x01\x02'` ✓
+- Files uploaded via `upload()` → `read_bytes()` → returns raw binary ✓
+- PNG/PDF files → `read_bytes()` → returns correct binary data ✓
+
+**Files Modified**:
+- `hopx_ai/files.py` - Added base64 decode logic to `read_bytes()` (lines 122-138) and `download()` (lines 353-367)
+- `hopx_ai/_async_files.py` - Added base64 decode logic to `async read_bytes()` (lines 103-118)
+
+**Tests**:
+- `test_base64_decode_logic.py` - Unit tests verify decode logic (no API key needed)
+- `test_binary_fix.py` - Integration tests with live sandbox (requires API key)
+
+**Critical Fixes from Code Reviews**
+
+1. **`list_templates()` None Crash** (`_parsers.py:228`)
+   - Fixed same pattern as #22/#8: API returns `{"data": null}` causing TypeError
+   - Changed `response.get("data", [])` to `response.get("data") or []`
+
+2. **`AsyncTerminal.iter_output()` Empty Message Crash** (`_async_terminal.py:159`)
+   - Added empty message protection before JSON parsing
+   - Skips empty/whitespace-only messages
+   - Added bytes-to-string conversion and warning logging for invalid JSON
+
+3. **`AsyncFiles.remove()` Parameter Issues** (`_async_files.py:170`)
+   - Removed `recursive` parameter (not in OpenAPI spec)
+   - Changed f-string URL to `params` dict for proper URL encoding
+
+### Added
+
+**TemplateNotFoundError with Fuzzy Matching**
+
+- `TemplateNotFoundError` raised when template name does not exist
+- Fuzzy matching suggests similar template names (e.g., "pythn" → "Did you mean 'python'?")
+- Lists available templates when no close match found
+- Uses `difflib.get_close_matches()` with 0.6 cutoff threshold
+
+**Files Modified**:
+- `hopx_ai/errors.py` - Added `TemplateNotFoundError` class
+- `hopx_ai/sandbox.py` - Added error handling in `create()`
+- `hopx_ai/async_sandbox.py` - Added error handling in `create()`
+
+**AsyncSandbox.run_code_stream() WebSocket Implementation**
+
+Completed the WebSocket streaming implementation for async code execution:
+
+- `AsyncSandbox.run_code_stream(code, language="python", timeout=60, env=None, working_dir="/workspace")` - Execute code with real-time output streaming
+- Returns `AsyncIterator[Dict[str, Any]]` yielding message dictionaries
+- Message types: `stdout`, `stderr`, `result`, `complete`
+- Matches sync `Sandbox.run_code_stream()` API and behavior
+- Requires `websockets` library
+
+**Example**:
+```python
+async with AsyncSandbox.create(template="code-interpreter") as sandbox:
+    async for message in sandbox.run_code_stream("print('Hello')"):
+        if message['type'] == 'stdout':
+            print(message['data'], end='')
+```
+
+**Implementation Details**:
+- Added `_ws_client` attribute initialization (line 92)
+- Added `_ensure_ws_client()` method (lines 831-842)
+- Updated `refresh_token()` to update WebSocket client token (lines 1107-1111)
+- Replaced stub implementation with complete WebSocket streaming (lines 1287-1362)
+- Connects to `/execute/stream` WebSocket endpoint
+- Sends execution request with `workdir` field (API compatibility)
+- Streams messages until `complete` type received
+
+**Files Modified**:
+- `hopx_ai/async_sandbox.py` - Complete `run_code_stream()` implementation
+- `examples/test_run_code_stream_async.py` - Test script for validation
+
+**AsyncFiles.watch() Method**
+
+Added async file watching support for feature parity with sync API:
+
+- `AsyncFiles.watch(path="/workspace", timeout=None)` - Watch filesystem changes via WebSocket
+- Yields event dictionaries: `{"type": "change", "path": "...", "event": "created", "timestamp": "..."}`
+- Event types: `created`, `modified`, `deleted`, `renamed`
+- Matches sync `Files.watch()` implementation
+- Requires `websockets` library
+
+**Example**:
+```python
+async with AsyncSandbox.create(template="code-interpreter") as sandbox:
+    async for event in sandbox.files.watch("/workspace"):
+        print(f"{event['event']}: {event['path']}")
+```
+
+**Files Modified**:
+- `hopx_ai/_async_files.py` - Added `watch()` method (lines 169-230)
+- `examples/test_file_watch.py` - Sync test script
+- `examples/test_file_watch_async.py` - Async test script
+
+**Note**: The `watch()` implementation is correct per OpenAPI spec. If file events are not detected, this is likely an Agent API issue. See `WATCH_ANALYSIS.md` for investigation details.
+
 ## [0.3.7] - 2025-11-26
 
 ### Added

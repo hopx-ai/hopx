@@ -153,6 +153,10 @@ export class Sandbox {
     // The API doesn't automatically set env_vars in the runtime environment.
     // We must explicitly set them via the Agent API after sandbox creation.
     if (options.envVars && Object.keys(options.envVars).length > 0) {
+      // ✅ FIX (#14): Ensure JWT token is valid BEFORE calling env.update()
+      // This prevents race condition where getInfo() catches token errors
+      // and continues without a token, causing env.update() to fail
+      await sandbox.ensureValidToken();
       await sandbox.env.update(options.envVars);
     }
 
@@ -284,7 +288,21 @@ export class Sandbox {
 
   /**
    * List all sandboxes
+   *
+   * Returns Sandbox instances that can be used directly for operations.
+   * Each Sandbox includes cached info from the list response.
+   *
    * API key can be provided via options.apiKey or HOPX_API_KEY environment variable
+   *
+   * @example
+   * ```typescript
+   * // List running sandboxes and use them directly
+   * const sandboxes = await Sandbox.list({ status: 'running' });
+   * for (const sandbox of sandboxes) {
+   *   console.log(sandbox.sandboxId);
+   *   const result = await sandbox.runCode("print('hello')");  // Works directly!
+   * }
+   * ```
    */
   static async list(options: {
     apiKey?: string;
@@ -292,11 +310,12 @@ export class Sandbox {
     limit?: number;
     status?: 'running' | 'stopped' | 'paused' | 'creating';
     region?: string;
-  } = {}): Promise<SandboxInfo[]> {
+  } = {}): Promise<Sandbox[]> {
     const apiKey = options.apiKey || process.env['HOPX_API_KEY'];
+    const baseURL = options.baseURL ?? 'https://api.hopx.dev';
 
     const client = new HTTPClient({
-      baseURL: options.baseURL ?? 'https://api.hopx.dev',
+      baseURL,
       apiKey,
       timeout: 60000,
       maxRetries: 3,
@@ -310,22 +329,16 @@ export class Sandbox {
     const query = params.toString() ? `?${params.toString()}` : '';
     const response = await client.get<any>(`/v1/sandboxes${query}`);
 
-    // Map API response to SandboxInfo array
+    // Fix null handling: response.data might be null even if key exists
     const sandboxes = response.data || [];
-    return sandboxes.map((s: any) => {
-      const resources = s.resources || {};
-      return {
-        sandboxId: s.id || s.sandbox_id,
-        templateName: s.template_name,
-        templateId: s.template_id,
-        status: s.status,
-        publicHost: s.public_host,
-        createdAt: s.created_at,
-        vcpu: resources.vcpu,
-        memoryMb: resources.memory_mb,
-        diskGb: resources.disk_gb ? Math.round(resources.disk_gb / 1024) : undefined,
-      };
-    });
+
+    // Return Sandbox instances instead of SandboxInfo objects
+    return sandboxes
+      .filter((s: any) => s != null)  // Filter null entries
+      .map((s: any) => {
+        const sandboxId = s.id || s.sandbox_id;
+        return new Sandbox(sandboxId, apiKey, baseURL);
+      });
   }
 
   /**
@@ -1236,7 +1249,7 @@ export class Sandbox {
    * Ensure JWT token is valid (not expired or expiring soon)
    * Auto-refreshes if less than 1 hour remaining
    */
-  private async ensureValidToken(): Promise<void> {
+  async ensureValidToken(): Promise<void> {
     const tokenData = tokenCache.get(this.sandboxId);
     
     if (!tokenData) {

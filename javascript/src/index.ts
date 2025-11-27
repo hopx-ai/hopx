@@ -50,6 +50,11 @@ export {
   SandboxExpiredError,
   TokenExpiredError,
   TemplateBuildError,
+  // New error classes (v0.3.8)
+  ValidationError,
+  NetworkError,
+  TimeoutError,
+  TemplateNotFoundError,
   ErrorCode,
 } from './errors.js';
 

@@ -20,11 +20,7 @@ class _CommandsBase(ABC):
     """
 
     def _build_run_payload(
-        self,
-        command: str,
-        timeout: int,
-        working_dir: str,
-        env: Optional[Dict[str, str]] = None
+        self, command: str, timeout: int, working_dir: str, env: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         Build payload for /commands/run endpoint.
@@ -43,7 +39,7 @@ class _CommandsBase(ABC):
             "command": "bash",
             "args": ["-c", command],
             "timeout": timeout,
-            "workdir": working_dir  # API expects "workdir" without underscore
+            "workdir": working_dir,  # API expects "workdir" without underscore
         }
 
         if env:
@@ -52,11 +48,7 @@ class _CommandsBase(ABC):
         return payload
 
     def _build_background_payload(
-        self,
-        command: str,
-        timeout: int,
-        working_dir: str,
-        env: Optional[Dict[str, str]] = None
+        self, command: str, timeout: int, working_dir: str, env: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         Build payload for /commands/background endpoint.
@@ -75,7 +67,7 @@ class _CommandsBase(ABC):
             "command": "bash",
             "args": ["-c", command],
             "timeout": timeout,
-            "workdir": working_dir  # API expects "workdir" without underscore
+            "workdir": working_dir,  # API expects "workdir" without underscore
         }
 
         if env:

@@ -9,12 +9,9 @@ from .models import (
     SandboxInfo,
     Template,
     ExecutionResult,  # ExecuteResponse + convenience methods
-    RichOutput,
-    MetricsSnapshot,
-    Language,
     ExpiryInfo,
 )
-from .errors import SandboxExpiredError, SandboxErrorMetadata
+from .errors import SandboxExpiredError, SandboxErrorMetadata, NotFoundError, TemplateNotFoundError
 
 from ._client import HTTPClient
 from ._agent_client import AgentHTTPClient
@@ -32,7 +29,6 @@ from ._token_cache import (
     TokenData,
     _token_cache,
     store_token_from_response,
-    get_cached_token,
 )
 from ._parsers import (
     _parse_sandbox_info_response,
@@ -42,7 +38,6 @@ from ._parsers import (
 )
 from ._sandbox_utils import (
     build_sandbox_create_payload,
-    build_list_sandboxes_params,
     build_list_templates_params,
     build_set_timeout_payload,
 )
@@ -53,20 +48,20 @@ logger = logging.getLogger(__name__)
 class Sandbox:
     """
     Hopx Sandbox - lightweight VM management.
-    
+
     Create and manage sandboxes (microVMs) with a simple, intuitive API.
-    
+
     Example:
         >>> from hopx_ai import Sandbox
-        >>> 
+        >>>
         >>> # Create sandbox
         >>> sandbox = Sandbox.create(template="code-interpreter")
         >>> print(sandbox.get_info().public_host)
-        >>> 
+        >>>
         >>> # Use and cleanup
         >>> sandbox.kill()
     """
-    
+
     def __init__(
         self,
         sandbox_id: str,
@@ -78,9 +73,9 @@ class Sandbox:
     ):
         """
         Initialize Sandbox instance.
-        
+
         Note: Prefer using Sandbox.create() or Sandbox.connect() instead of direct instantiation.
-        
+
         Args:
             sandbox_id: Sandbox ID
             api_key: API key (or use HOPX_API_KEY env var)
@@ -103,17 +98,17 @@ class Sandbox:
         self._env: Optional[EnvironmentVariables] = None
         self._cache: Optional[Cache] = None
         self._terminal: Optional[Terminal] = None
-    
+
     @property
     def files(self) -> Files:
         """
         File operations resource.
-        
+
         Lazy initialization - gets agent URL on first access.
-        
+
         Returns:
             Files resource instance
-        
+
         Example:
             >>> sandbox = Sandbox.create(template="code-interpreter")
             >>> content = sandbox.files.read('/workspace/data.txt')
@@ -123,17 +118,17 @@ class Sandbox:
             # WS client is lazy-loaded in Files.watch() - not needed for basic operations
             self._files = Files(self._agent_client, self)
         return self._files
-    
+
     @property
     def commands(self) -> Commands:
         """
         Command execution resource.
-        
+
         Lazy initialization - gets agent URL on first access.
-        
+
         Returns:
             Commands resource instance
-        
+
         Example:
             >>> sandbox = Sandbox.create(template="code-interpreter")
             >>> result = sandbox.commands.run('npm install')
@@ -142,14 +137,14 @@ class Sandbox:
             self._ensure_agent_client()
             self._commands = Commands(self._agent_client)
         return self._commands
-    
+
     @property
     def desktop(self) -> Desktop:
         """
         Desktop automation resource.
-        
+
         Lazy initialization - checks desktop availability on first access.
-        
+
         Provides methods for:
         - VNC server management
         - Mouse and keyboard control
@@ -157,29 +152,29 @@ class Sandbox:
         - Screen recording
         - Window management
         - Display configuration
-        
+
         Returns:
             Desktop resource instance
-        
+
         Raises:
             DesktopNotAvailableError: If template doesn't support desktop automation
-        
+
         Example:
             >>> sandbox = Sandbox.create(template="desktop")
-            >>> 
+            >>>
             >>> # Start VNC
             >>> vnc_info = sandbox.desktop.start_vnc()
             >>> print(f"VNC at: {vnc_info.url}")
-            >>> 
+            >>>
             >>> # Mouse control
             >>> sandbox.desktop.click(100, 100)
             >>> sandbox.desktop.type("Hello World")
-            >>> 
+            >>>
             >>> # Screenshot
             >>> img = sandbox.desktop.screenshot()
             >>> with open('screen.png', 'wb') as f:
             ...     f.write(img)
-            >>> 
+            >>>
             >>> # If desktop not available:
             >>> try:
             ...     sandbox.desktop.click(100, 100)
@@ -191,42 +186,42 @@ class Sandbox:
             self._ensure_agent_client()
             self._desktop = Desktop(self._agent_client)
         return self._desktop
-    
+
     @property
     def env(self) -> EnvironmentVariables:
         """
         Environment variables resource.
-        
+
         Lazy initialization - gets agent URL on first access.
-        
+
         Provides methods for:
         - Get all environment variables
         - Set/replace all environment variables
         - Update specific environment variables (merge)
         - Delete environment variables
-        
+
         Returns:
             EnvironmentVariables resource instance
-        
+
         Example:
             >>> sandbox = Sandbox.create(template="code-interpreter")
-            >>> 
+            >>>
             >>> # Get all environment variables
             >>> env = sandbox.env.get_all()
             >>> print(env.get("PATH"))
-            >>> 
+            >>>
             >>> # Set a single variable
             >>> sandbox.env.set("API_KEY", "sk-prod-xyz")
-            >>> 
+            >>>
             >>> # Update multiple variables (merge)
             >>> sandbox.env.update({
             ...     "NODE_ENV": "production",
             ...     "DEBUG": "false"
             ... })
-            >>> 
+            >>>
             >>> # Get a specific variable
             >>> api_key = sandbox.env.get("API_KEY")
-            >>> 
+            >>>
             >>> # Delete a variable
             >>> sandbox.env.delete("DEBUG")
         """
@@ -234,29 +229,29 @@ class Sandbox:
             self._ensure_agent_client()
             self._env = EnvironmentVariables(self._agent_client)
         return self._env
-    
+
     @property
     def cache(self) -> Cache:
         """
         Cache management resource.
-        
+
         Lazy initialization - gets agent URL on first access.
-        
+
         Provides methods for:
         - Get cache statistics
         - Clear cache
-        
+
         Returns:
             Cache resource instance
-        
+
         Example:
             >>> sandbox = Sandbox.create(template="code-interpreter")
-            >>> 
+            >>>
             >>> # Get cache stats
             >>> stats = sandbox.cache.stats()
             >>> print(f"Cache hits: {stats['hits']}")
             >>> print(f"Cache size: {stats['size']} MB")
-            >>> 
+            >>>
             >>> # Clear cache
             >>> sandbox.cache.clear()
         """
@@ -264,90 +259,93 @@ class Sandbox:
             self._ensure_agent_client()
             self._cache = Cache(self._agent_client)
         return self._cache
-    
+
     @property
     def terminal(self) -> Terminal:
         """
         Interactive terminal resource via WebSocket.
-        
+
         Lazy initialization - gets agent URL and WebSocket client on first access.
-        
+
         Provides methods for:
         - Connect to interactive terminal
         - Send input to terminal
         - Resize terminal
         - Receive output stream
-        
+
         Returns:
             Terminal resource instance
-        
+
         Note:
             Requires websockets library: pip install websockets
-        
+
         Example:
             >>> import asyncio
-            >>> 
+            >>>
             >>> async def run_terminal():
             ...     sandbox = Sandbox.create(template="code-interpreter")
-            ...     
+            ...
             ...     # Connect to terminal
             ...     async with await sandbox.terminal.connect() as ws:
             ...         # Send command
             ...         await sandbox.terminal.send_input(ws, "ls -la\\n")
-            ...         
+            ...
             ...         # Receive output
             ...         async for message in sandbox.terminal.iter_output(ws):
             ...             if message['type'] == 'output':
             ...                 print(message['data'], end='')
             ...             elif message['type'] == 'exit':
             ...                 break
-            >>> 
+            >>>
             >>> asyncio.run(run_terminal())
         """
         if self._terminal is None:
             self._ensure_ws_client()
             self._terminal = Terminal(self._ws_client)
         return self._terminal
-    
+
     def _ensure_agent_client(self) -> None:
         """Ensure agent HTTP client is initialized."""
         if self._agent_client is None:
             info = self.get_info()
-            agent_url = info.public_host.rstrip('/')
-            
+            agent_url = info.public_host.rstrip("/")
+
             # Ensure JWT token is valid
             self._ensure_valid_token()
-            
+
             # Get JWT token for agent authentication
             jwt_token = _token_cache.get(self.sandbox_id)
             jwt_token_str = jwt_token.token if jwt_token else None
-            
+
             # Create agent client with token refresh callback
             def refresh_token_callback():
                 """Callback to refresh token when agent returns 401."""
                 self.refresh_token()
                 token_data = _token_cache.get(self.sandbox_id)
                 return token_data.token if token_data else None
-            
+
             self._agent_client = AgentHTTPClient(
                 agent_url=agent_url,
                 jwt_token=jwt_token_str,
                 timeout=60,  # Default 60s for agent operations
                 max_retries=3,
-                token_refresh_callback=refresh_token_callback
+                token_refresh_callback=refresh_token_callback,
             )
             logger.debug(f"Agent client initialized: {agent_url}")
-            
+
             # Wait for agent to be ready on first access
             # Agent might need a moment after sandbox creation
             import time
+
             max_wait = 30  # seconds (increased for reliability)
             retry_delay = 1.5  # seconds between retries
-            
+
             for attempt in range(max_wait):
                 try:
                     # Quick health check with short timeout
-                    health = self._agent_client.get("/health", operation="agent health check", timeout=5)
+                    health = self._agent_client.get(
+                        "/health", operation="agent health check", timeout=5
+                    )
                     if health.json().get("status") == "healthy":
                         logger.debug(f"Agent ready after {attempt * retry_delay:.1f}s")
                         break
@@ -356,20 +354,22 @@ class Sandbox:
                         time.sleep(retry_delay)
                         continue
                     # Don't log warning - agent will usually work anyway
-                    logger.debug(f"Agent health check timeout after {max_wait * retry_delay:.1f}s: {e}")
-    
+                    logger.debug(
+                        f"Agent health check timeout after {max_wait * retry_delay:.1f}s: {e}"
+                    )
+
     def _ensure_ws_client(self) -> None:
         """Ensure WebSocket client is initialized and agent is ready."""
         if self._ws_client is None:
             # First ensure agent HTTP client is ready (which waits for agent)
             self._ensure_agent_client()
-            
+
             info = self.get_info()
-            agent_url = info.public_host.rstrip('/')
+            agent_url = info.public_host.rstrip("/")
             token = self.get_token()
             self._ws_client = WebSocketClient(agent_url, token)
             logger.debug(f"WebSocket client initialized: {agent_url}")
-    
+
     def refresh_token(self) -> None:
         """
         Refresh JWT token for agent authentication.
@@ -389,14 +389,14 @@ class Sandbox:
             self._agent_client.update_jwt_token(response["auth_token"])
         if self._ws_client is not None and "auth_token" in response:
             self._ws_client.update_jwt_token(response["auth_token"])
-    
+
     def _ensure_valid_token(self) -> None:
         """
         Ensure JWT token is valid (not expired or expiring soon).
         Auto-refreshes if less than 1 hour remaining.
         """
         token_data = _token_cache.get(self.sandbox_id)
-        
+
         if token_data is None:
             # No token yet, try to refresh
             try:
@@ -405,39 +405,40 @@ class Sandbox:
                 # Token might not be available yet (e.g., old sandbox)
                 pass
             return
-        
+
         # Check if token expires soon (< 1 hour)
         now = datetime.now(token_data.expires_at.tzinfo)
         hours_left = (token_data.expires_at - now).total_seconds() / 3600
-        
+
         if hours_left < 1:
             # Refresh token
             self.refresh_token()
-    
+
     def get_token(self) -> str:
         """
         Get current JWT token (for advanced use cases).
         Automatically refreshes if needed.
-        
+
         Returns:
             JWT token string
-        
+
         Raises:
             HopxError: If no token available
         """
         self._ensure_valid_token()
-        
+
         token_data = _token_cache.get(self.sandbox_id)
         if token_data is None:
             from .errors import HopxError
-            raise HopxError('No JWT token available for sandbox')
-        
+
+            raise HopxError("No JWT token available for sandbox")
+
         return token_data.token
-    
+
     # =============================================================================
     # CLASS METHODS (Static - for creating/listing sandboxes)
     # =============================================================================
-    
+
     @classmethod
     def create(
         cls,
@@ -453,10 +454,10 @@ class Sandbox:
     ) -> "Sandbox":
         """
         Create a new sandbox from a template.
-        
+
         Resources (vcpu, memory, disk) are ALWAYS loaded from the template.
         You cannot specify custom resources - create a template first with desired resources.
-        
+
         Args:
             template: Template name (e.g., "my-python-template")
             template_id: Template ID (alternative to template name)
@@ -466,15 +467,15 @@ class Sandbox:
             env_vars: Environment variables to set in the sandbox (optional)
             api_key: API key (or use HOPX_API_KEY env var)
             base_url: API base URL (default: production)
-        
+
         Returns:
             Sandbox instance
-        
+
         Raises:
             ValidationError: Invalid parameters
             ResourceLimitError: Insufficient resources
             APIError: API request failed
-        
+
         Examples:
             >>> # Create from template ID with timeout
             >>> sandbox = Sandbox.create(
@@ -483,7 +484,7 @@ class Sandbox:
             ...     internet_access=True
             ... )
             >>> print(sandbox.get_info().public_host)
-            
+
             >>> # Create from template name without internet
             >>> sandbox = Sandbox.create(
             ...     template="my-python-template",
@@ -505,8 +506,38 @@ class Sandbox:
         )
 
         # Create sandbox via API
-        response = client.post("/v1/sandboxes", json=data)
-        sandbox_id = response["id"]
+        try:
+            response = client.post("/v1/sandboxes", json=data)
+            sandbox_id = response["id"]
+        except NotFoundError as e:
+            # If template not found, provide helpful suggestions
+            if template:
+                # Fetch available templates for fuzzy matching
+                try:
+                    templates = cls.list_templates(api_key=api_key, base_url=base_url)
+                    available_names = [t.name for t in templates]
+                    raise TemplateNotFoundError(
+                        template_name=template,
+                        available_templates=available_names,
+                        code=e.code,
+                        request_id=e.request_id,
+                        status_code=e.status_code,
+                        details=e.details,
+                    ) from e
+                except TemplateNotFoundError:
+                    raise
+                except Exception:
+                    # If fetching templates fails, raise without suggestions
+                    raise TemplateNotFoundError(
+                        template_name=template,
+                        code=e.code,
+                        request_id=e.request_id,
+                        status_code=e.status_code,
+                        details=e.details,
+                    ) from e
+            else:
+                # Re-raise original error if not template-related
+                raise
 
         # Store JWT token from create response using shared utility
         store_token_from_response(sandbox_id, response)
@@ -526,7 +557,7 @@ class Sandbox:
             instance.env.update(env_vars)
 
         return instance
-    
+
     @classmethod
     def debug(
         cls,
@@ -536,17 +567,17 @@ class Sandbox:
     ) -> "Sandbox":
         """
         Connect directly to agent for debugging (bypass public API).
-        
+
         Useful for testing SDK against a specific agent without creating a sandbox.
-        
+
         Args:
             agent_url: Agent URL (e.g., "https://7777-xxx.vms.hopx.dev" or "wss://...")
             jwt_token: JWT token for agent authentication
             sandbox_id: Sandbox ID (default: "debug")
-        
+
         Returns:
             Sandbox instance connected directly to agent
-        
+
         Example:
             >>> sandbox = Sandbox.debug(
             ...     agent_url="https://7777-xxx.vms.hopx.dev",
@@ -554,42 +585,42 @@ class Sandbox:
             ... )
             >>> result = sandbox.run_code("print('Hello')")
         """
-        from datetime import datetime, timedelta
-        
+        from datetime import datetime
+
         # Remove wss:// prefix if present (use https://)
         if agent_url.startswith("wss://"):
             agent_url = "https://" + agent_url[6:]
         elif agent_url.startswith("ws://"):
             agent_url = "http://" + agent_url[5:]
-        
+
         # Create sandbox instance (no API key needed)
         sandbox = cls(
             sandbox_id=sandbox_id,
             api_key="debug",
             base_url="https://api.hopx.dev",
         )
-        
+
         # Store JWT token in cache
         _token_cache[sandbox_id] = TokenData(
             token=jwt_token,
             expires_at=datetime.now() + timedelta(hours=24),  # Long expiry for debug
         )
-        
+
         # Initialize agent client directly
         from ._agent_client import AgentHTTPClient
-        
+
         def token_refresh_callback():
             # For debug mode, token refresh is not supported
             return None
-        
+
         sandbox._agent_client = AgentHTTPClient(
             agent_url,
             jwt_token=jwt_token,
             token_refresh_callback=token_refresh_callback,
         )
-        
+
         return sandbox
-    
+
     @classmethod
     def connect(
         cls,
@@ -600,25 +631,25 @@ class Sandbox:
     ) -> "Sandbox":
         """
         Connect to an existing sandbox.
-        
+
         NEW JWT Behavior:
         - If VM is paused → resumes it and refreshes JWT token
         - If VM is stopped → raises error (cannot connect to stopped VM)
         - If VM is running/active → refreshes JWT token
         - Stores JWT token for agent authentication
-        
+
         Args:
             sandbox_id: Sandbox ID
             api_key: API key (or use HOPX_API_KEY env var)
             base_url: API base URL
-        
+
         Returns:
             Sandbox instance
-        
+
         Raises:
             NotFoundError: Sandbox not found
             HopxError: If sandbox is stopped or in invalid state
-        
+
         Example:
             >>> sandbox = Sandbox.connect("1761048129dsaqav4n")
             >>> info = sandbox.get_info()
@@ -630,34 +661,35 @@ class Sandbox:
             api_key=api_key,
             base_url=base_url,
         )
-        
+
         # Get current VM status
         info = instance.get_info()
-        
+
         # Handle different VM states
         if info.status == "stopped":
             from .errors import HopxError
+
             raise HopxError(
-                f"Cannot connect to stopped sandbox {sandbox_id}. "
-                "Please create a new sandbox."
+                f"Cannot connect to stopped sandbox {sandbox_id}. " "Please create a new sandbox."
             )
-        
+
         if info.status == "paused":
             # Resume paused VM
             instance.resume()
-        
+
         if info.status not in ("running", "paused"):
             from .errors import HopxError
+
             raise HopxError(
                 f"Cannot connect to sandbox {sandbox_id} with status '{info.status}'. "
                 "Expected 'running' or 'paused'."
             )
-        
+
         # Refresh JWT token for agent authentication
         instance.refresh_token()
-        
+
         return instance
-    
+
     @classmethod
     def iter(
         cls,
@@ -669,19 +701,19 @@ class Sandbox:
     ) -> Iterator["Sandbox"]:
         """
         Lazy iterator for sandboxes.
-        
+
         Yields sandboxes one by one, fetching pages as needed.
         Doesn't load all sandboxes into memory at once.
-        
+
         Args:
             status: Filter by status (running, stopped, paused, creating)
             region: Filter by region
             api_key: API key (or use HOPX_API_KEY env var)
             base_url: API base URL
-        
+
         Yields:
             Sandbox instances
-        
+
         Example:
             >>> # Lazy loading - fetches pages as needed
             >>> for sandbox in Sandbox.iter(status="running"):
@@ -693,7 +725,7 @@ class Sandbox:
         limit = 100
         has_more = True
         cursor = None
-        
+
         while has_more:
             params = {"limit": limit}
             if status:
@@ -702,23 +734,23 @@ class Sandbox:
                 params["region"] = region
             if cursor:
                 params["cursor"] = cursor
-            
+
             logger.debug(f"Fetching sandboxes page (cursor: {cursor})")
             response = client.get("/v1/sandboxes", params=params)
-            
-            for item in response.get("data", []):
+
+            for item in response.get("data") or []:
                 yield cls(
                     sandbox_id=item["id"],
                     api_key=api_key,
                     base_url=base_url,
                 )
-            
+
             has_more = response.get("has_more", False)
             cursor = response.get("next_cursor")
-            
+
             if has_more:
                 logger.debug(f"More results available, next cursor: {cursor}")
-    
+
     @classmethod
     def list(
         cls,
@@ -731,40 +763,42 @@ class Sandbox:
     ) -> List["Sandbox"]:
         """
         List all sandboxes (loads all into memory).
-        
+
         For lazy loading (better memory usage), use Sandbox.iter() instead.
-        
+
         Args:
             status: Filter by status (running, stopped, paused, creating)
             region: Filter by region
             limit: Maximum number of results (default: 100)
             api_key: API key (or use HOPX_API_KEY env var)
             base_url: API base URL
-        
+
         Returns:
             List of Sandbox instances (all loaded into memory)
-        
+
         Example:
             >>> # List all running sandboxes (loads all into memory)
             >>> sandboxes = Sandbox.list(status="running")
             >>> for sb in sandboxes:
             ...     print(f"{sb.sandbox_id}")
-            
+
             >>> # For better memory usage, use iter():
             >>> for sb in Sandbox.iter(status="running"):
             ...     print(f"{sb.sandbox_id}")
         """
         client = HTTPClient(api_key=api_key, base_url=base_url)
-        
-        params = remove_none_values({
-            "status": status,
-            "region": region,
-            "limit": limit,
-        })
-        
+
+        params = remove_none_values(
+            {
+                "status": status,
+                "region": region,
+                "limit": limit,
+            }
+        )
+
         response = client.get("/v1/sandboxes", params=params)
-        sandboxes_data = response.get("data", [])
-        
+        sandboxes_data = response.get("data") or []
+
         # Create Sandbox instances
         return [
             cls(
@@ -774,7 +808,7 @@ class Sandbox:
             )
             for sb in sandboxes_data
         ]
-    
+
     @classmethod
     def list_templates(
         cls,
@@ -813,7 +847,7 @@ class Sandbox:
 
         # Parse response using shared utility
         return _parse_template_list_response(response)
-    
+
     @classmethod
     def get_template(
         cls,
@@ -909,18 +943,20 @@ class Sandbox:
         """
         # Use a minimal client without API key for health check
         import httpx
+
         try:
             response = httpx.get(f"{base_url.rstrip('/')}/health", timeout=10)
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
             from .errors import NetworkError
+
             raise NetworkError(f"Health check failed: {e}")
 
     # =============================================================================
     # INSTANCE METHODS (for managing individual sandbox)
     # =============================================================================
-    
+
     def get_info(self) -> SandboxInfo:
         """
         Get current sandbox information.
@@ -997,17 +1033,17 @@ class Sandbox:
         from .errors import HopxError
 
         # Remove protocol and trailing slash
-        host = public_host.replace('https://', '').replace('http://', '').rstrip('/')
+        host = public_host.replace("https://", "").replace("http://", "").rstrip("/")
 
         # Pattern 1: {port}-{sandbox_id}.{region}.vms.hopx.dev
-        match = re.match(r'^(?:\d+-)?([^.]+)\.(.+\.vms\.hopx\.dev)$', host)
+        match = re.match(r"^(?:\d+-)?([^.]+)\.(.+\.vms\.hopx\.dev)$", host)
         if match:
             sandbox_part = match.group(1)
             domain_part = match.group(2)
             return f"https://{port}-{sandbox_part}.{domain_part}/"
 
         # Pattern 2: {sandbox_id}.{region}.vms.hopx.dev (no port prefix)
-        match = re.match(r'^([^.]+)\.(.+\.vms\.hopx\.dev)$', host)
+        match = re.match(r"^([^.]+)\.(.+\.vms\.hopx\.dev)$", host)
         if match:
             sandbox_part = match.group(1)
             domain_part = match.group(2)
@@ -1140,11 +1176,7 @@ class Sandbox:
         """
         try:
             self._ensure_agent_client()
-            response = self._agent_client.get(
-                "/health",
-                operation="health check",
-                timeout=5
-            )
+            response = self._agent_client.get("/health", operation="health check", timeout=5)
             data = response.json()
             return data.get("status") == "healthy"
         except Exception:
@@ -1183,7 +1215,7 @@ class Sandbox:
                     created_at=str(info.created_at) if info.created_at else None,
                     expires_at=str(info.expires_at) if info.expires_at else None,
                     status=info.status,
-                )
+                ),
             )
 
         # Check agent health
@@ -1229,10 +1261,7 @@ class Sandbox:
 
         logger.debug("Getting agent info")
 
-        response = self._agent_client.get(
-            "/info",
-            operation="get agent info"
-        )
+        response = self._agent_client.get("/info", operation="get agent info")
 
         return response.json()
 
@@ -1264,10 +1293,7 @@ class Sandbox:
 
         logger.debug("Getting agent metrics")
 
-        response = self._agent_client.get(
-            "/metrics/snapshot",
-            operation="get agent metrics"
-        )
+        response = self._agent_client.get("/metrics/snapshot", operation="get agent metrics")
 
         return response.json()
 
@@ -1299,10 +1325,7 @@ class Sandbox:
 
         logger.debug("Listing system processes")
 
-        response = self._agent_client.get(
-            "/processes",
-            operation="list system processes"
-        )
+        response = self._agent_client.get("/processes", operation="list system processes")
 
         return response.json().get("processes", [])
 
@@ -1332,10 +1355,7 @@ class Sandbox:
 
         logger.debug("Getting Jupyter sessions")
 
-        response = self._agent_client.get(
-            "/jupyter/sessions",
-            operation="get jupyter sessions"
-        )
+        response = self._agent_client.get("/jupyter/sessions", operation="get jupyter sessions")
 
         return response.json().get("sessions", [])
 
@@ -1407,30 +1427,30 @@ class Sandbox:
         if preflight:
             self.ensure_healthy()
         self._ensure_agent_client()
-        
+
         logger.debug(f"Executing {language} code ({len(code)} chars)")
-        
+
         # Build request payload
         payload = {
             "language": language,
             "code": code,
             "workdir": working_dir,  # API expects "workdir" without underscore
-            "timeout": timeout
+            "timeout": timeout,
         }
-        
+
         # Add optional environment variables
         if env:
             payload["env"] = env
-        
+
         # Use /execute endpoint for code execution
         response = self._agent_client.post(
             "/execute",
             json=payload,
             operation="execute code",
             context={"language": language},
-            timeout=timeout + 30  # Add buffer to HTTP timeout for network latency
+            timeout=timeout + 30,  # Add buffer to HTTP timeout for network latency
         )
-        
+
         data = response.json() if response.content else {}
 
         # Parse rich outputs using shared utility function
@@ -1443,11 +1463,11 @@ class Sandbox:
             stderr=data.get("stderr", "") if data else "",
             exit_code=data.get("exit_code", 0) if data else 1,
             execution_time=data.get("execution_time", 0.0) if data else 0.0,
-            rich_outputs=rich_outputs
+            rich_outputs=rich_outputs,
         )
-        
+
         return result
-    
+
     def run_code_async(
         self,
         code: str,
@@ -1462,9 +1482,9 @@ class Sandbox:
     ) -> Dict[str, Any]:
         """
         Execute code asynchronously with webhook callback.
-        
+
         For long-running code (>5 minutes). Agent will POST results to callback_url when complete.
-        
+
         Args:
             code: Code to execute
             callback_url: URL to POST results to when execution completes
@@ -1474,10 +1494,10 @@ class Sandbox:
             working_dir: Working directory (default: /workspace)
             callback_headers: Custom headers to include in callback request
             callback_signature_secret: Secret to sign callback payload (HMAC-SHA256)
-        
+
         Returns:
             Dict with execution_id, status, callback_url
-        
+
         Example:
             >>> # Start async execution
             >>> response = sandbox.run_code_async(
@@ -1487,7 +1507,7 @@ class Sandbox:
             ...     callback_signature_secret='webhook-secret-123'
             ... )
             >>> print(f"Execution ID: {response['execution_id']}")
-            >>> 
+            >>>
             >>> # Agent will POST to callback_url when done:
             >>> # POST https://app.com/webhooks/ml/training
             >>> # X-HOPX-Signature: sha256=...
@@ -1503,9 +1523,9 @@ class Sandbox:
             >>> # }
         """
         self._ensure_agent_client()
-        
+
         logger.debug(f"Starting async {language} execution ({len(code)} chars)")
-        
+
         # Build request payload
         payload = {
             "code": code,
@@ -1514,24 +1534,24 @@ class Sandbox:
             "workdir": working_dir,  # API expects "workdir" without underscore
             "callback_url": callback_url,
         }
-        
+
         if env:
             payload["env"] = env
         if callback_headers:
             payload["callback_headers"] = callback_headers
         if callback_signature_secret:
             payload["callback_signature_secret"] = callback_signature_secret
-        
+
         response = self._agent_client.post(
             "/execute/async",
             json=payload,
             operation="async execute code",
             context={"language": language},
-            timeout=10  # Quick response
+            timeout=10,  # Quick response
         )
-        
+
         return response.json()
-    
+
     def run_code_background(
         self,
         code: str,
@@ -1589,74 +1609,71 @@ class Sandbox:
             "language": language,
             "timeout": timeout,
         }
-        
+
         if env:
             payload["env"] = env
         if name:
             payload["name"] = name
-        
+
         response = self._agent_client.post(
             "/execute/background",
             json=payload,
             operation="background execute code",
             context={"language": language},
-            timeout=10  # Quick response
+            timeout=10,  # Quick response
         )
-        
+
         return response.json()
-    
+
     def list_processes(self) -> List[Dict[str, Any]]:
         """
         List all background execution processes.
-        
+
         Returns:
             List of process dictionaries with status
-        
+
         Example:
             >>> processes = sandbox.list_processes()
             >>> for p in processes:
             ...     print(f"{p['name']}: {p['status']} (PID: {p['process_id']})")
         """
         self._ensure_agent_client()
-        
-        response = self._agent_client.get(
-            "/execute/processes",
-            operation="list processes"
-        )
-        
+
+        response = self._agent_client.get("/execute/processes", operation="list processes")
+
         data = response.json()
         return data.get("processes", [])
-    
+
     def kill_process(self, process_id: str) -> Dict[str, Any]:
         """
         Kill a background execution process.
-        
+
         Args:
             process_id: Process ID to kill
-        
+
         Returns:
             Dict with confirmation message
-        
+
         Example:
             >>> sandbox.kill_process("proc_abc123")
         """
         self._ensure_agent_client()
-        
+
         response = self._agent_client.post(
             f"/execute/kill/{process_id}",
             operation="kill process",
-            context={"process_id": process_id}
+            context={"process_id": process_id},
         )
-        
+
         return response.json()
-    
+
     def get_metrics_snapshot(self) -> Dict[str, Any]:
         """
         Get current system metrics snapshot.
-        
+
         Returns:
             Dict with system metrics (CPU, memory, disk), process metrics, cache stats
-        
+
         Example:
             >>> metrics = sandbox.get_metrics_snapshot()
             >>> print(f"CPU: {metrics['system']['cpu']['usage_percent']}%")
@@ -1665,14 +1682,11 @@ class Sandbox:
             >>> print(f"Cache size: {metrics['cache']['size']}")
         """
         self._ensure_agent_client()
-        
-        response = self._agent_client.get(
-            "/metrics/snapshot",
-            operation="get metrics snapshot"
-        )
-        
+
+        response = self._agent_client.get("/metrics/snapshot", operation="get metrics snapshot")
+
         return response.json()
-    
+
     async def run_code_stream(
         self,
         code: str,
@@ -1680,53 +1694,53 @@ class Sandbox:
         language: str = "python",
         timeout: int = 60,
         env: Optional[Dict[str, str]] = None,
-        working_dir: str = "/workspace"
+        working_dir: str = "/workspace",
     ):
         """
         Execute code with real-time output streaming via WebSocket.
-        
+
         Stream stdout/stderr as it's generated (async generator).
-        
+
         Args:
             code: Code to execute
             language: Language (python, javascript, bash, go)
             timeout: Execution timeout in seconds
             env: Optional environment variables
             working_dir: Working directory
-        
+
         Yields:
             Message dictionaries:
             - {"type": "stdout", "data": "...", "timestamp": "..."}
             - {"type": "stderr", "data": "...", "timestamp": "..."}
             - {"type": "result", "exit_code": 0, "execution_time": 1.23}
             - {"type": "complete", "success": True}
-        
+
         Note:
             Requires websockets library: pip install websockets
-        
+
         Example:
             >>> import asyncio
-            >>> 
+            >>>
             >>> async def stream_execution():
             ...     sandbox = Sandbox.create(template="code-interpreter")
-            ...     
+            ...
             ...     code = '''
             ...     import time
             ...     for i in range(5):
             ...         print(f"Step {i+1}/5")
             ...         time.sleep(1)
             ...     '''
-            ...     
+            ...
             ...     async for message in sandbox.run_code_stream(code):
             ...         if message['type'] == 'stdout':
             ...             print(message['data'], end='')
             ...         elif message['type'] == 'result':
             ...             print(f"\\nExit code: {message['exit_code']}")
-            >>> 
+            >>>
             >>> asyncio.run(stream_execution())
         """
         self._ensure_ws_client()
-        
+
         # Connect to streaming endpoint
         async with await self._ws_client.connect("/execute/stream") as ws:
             # Send execution request
@@ -1735,21 +1749,21 @@ class Sandbox:
                 "code": code,
                 "language": language,
                 "timeout": timeout,
-                "workdir": working_dir  # API expects "workdir" without underscore
+                "workdir": working_dir,  # API expects "workdir" without underscore
             }
             if env:
                 request["env"] = env
-            
+
             await self._ws_client.send_message(ws, request)
-            
+
             # Stream messages
             async for message in self._ws_client.iter_messages(ws):
                 yield message
-                
+
                 # Stop on complete
-                if message.get('type') == 'complete':
+                if message.get("type") == "complete":
                     break
-    
+
     def set_timeout(self, seconds: int) -> None:
         """
         Extend sandbox timeout.
@@ -1779,56 +1793,53 @@ class Sandbox:
         # Build payload using shared utility
         payload = build_set_timeout_payload(seconds)
 
-        self._client.put(
-            f"/v1/sandboxes/{self.sandbox_id}/timeout",
-            json=payload
-        )
+        self._client.put(f"/v1/sandboxes/{self.sandbox_id}/timeout", json=payload)
 
         logger.info(f"Timeout updated to {seconds}s")
 
     def pause(self) -> None:
         """
         Pause the sandbox.
-        
+
         A paused sandbox can be resumed with resume().
-        
+
         Example:
             >>> sandbox.pause()
             >>> # ... do something else ...
             >>> sandbox.resume()
         """
         self._client.post(f"/v1/sandboxes/{self.sandbox_id}/pause")
-    
+
     def resume(self) -> None:
         """
         Resume a paused sandbox.
-        
+
         Example:
             >>> sandbox.resume()
         """
         self._client.post(f"/v1/sandboxes/{self.sandbox_id}/resume")
-    
+
     def kill(self) -> None:
         """
         Destroy the sandbox immediately.
-        
+
         This action is irreversible. All data in the sandbox will be lost.
-        
+
         Example:
             >>> sandbox = Sandbox.create(template="code-interpreter")
             >>> # ... use sandbox ...
             >>> sandbox.kill()  # Clean up
         """
         self._client.delete(f"/v1/sandboxes/{self.sandbox_id}")
-    
+
     # =============================================================================
     # CONTEXT MANAGER (auto-cleanup)
     # =============================================================================
-    
+
     def __enter__(self) -> "Sandbox":
         """Context manager entry."""
         return self
-    
+
     def __exit__(self, *args) -> None:
         """Context manager exit - auto cleanup."""
         try:
@@ -1836,18 +1847,17 @@ class Sandbox:
         except Exception:
             # Ignore errors on cleanup
             pass
-    
+
     # =============================================================================
     # UTILITY METHODS
     # =============================================================================
-    
+
     def __repr__(self) -> str:
         return f"<Sandbox {self.sandbox_id}>"
-    
+
     def __str__(self) -> str:
         try:
             info = self.get_info()
             return f"Sandbox(id={self.sandbox_id}, status={info.status}, url={info.public_host})"
         except Exception:
             return f"Sandbox(id={self.sandbox_id})"
-

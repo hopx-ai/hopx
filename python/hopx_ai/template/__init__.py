@@ -44,4 +44,3 @@ __all__ = [
     "VM",
     "LogsResponse",
 ]
-

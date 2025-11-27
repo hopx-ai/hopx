@@ -8,12 +8,12 @@ from .types import ReadyCheck, ReadyCheckType
 def wait_for_port(port: int, timeout: int = 30000, interval: int = 2000) -> ReadyCheck:
     """
     Wait for TCP port to be open
-    
+
     Args:
         port: Port number to check
         timeout: Timeout in milliseconds (default: 30000)
         interval: Check interval in milliseconds (default: 2000)
-        
+
     Returns:
         ReadyCheck configuration
     """
@@ -28,12 +28,12 @@ def wait_for_port(port: int, timeout: int = 30000, interval: int = 2000) -> Read
 def wait_for_url(url: str, timeout: int = 30000, interval: int = 2000) -> ReadyCheck:
     """
     Wait for HTTP URL to return 200
-    
+
     Args:
         url: URL to check
         timeout: Timeout in milliseconds (default: 30000)
         interval: Check interval in milliseconds (default: 2000)
-        
+
     Returns:
         ReadyCheck configuration
     """
@@ -48,12 +48,12 @@ def wait_for_url(url: str, timeout: int = 30000, interval: int = 2000) -> ReadyC
 def wait_for_file(path: str, timeout: int = 30000, interval: int = 2000) -> ReadyCheck:
     """
     Wait for file to exist
-    
+
     Args:
         path: File path to check
         timeout: Timeout in milliseconds (default: 30000)
         interval: Check interval in milliseconds (default: 2000)
-        
+
     Returns:
         ReadyCheck configuration
     """
@@ -68,12 +68,12 @@ def wait_for_file(path: str, timeout: int = 30000, interval: int = 2000) -> Read
 def wait_for_process(process_name: str, timeout: int = 30000, interval: int = 2000) -> ReadyCheck:
     """
     Wait for process to be running
-    
+
     Args:
         process_name: Process name to check
         timeout: Timeout in milliseconds (default: 30000)
         interval: Check interval in milliseconds (default: 2000)
-        
+
     Returns:
         ReadyCheck configuration
     """
@@ -88,12 +88,12 @@ def wait_for_process(process_name: str, timeout: int = 30000, interval: int = 20
 def wait_for_command(command: str, timeout: int = 30000, interval: int = 2000) -> ReadyCheck:
     """
     Wait for command to exit with code 0
-    
+
     Args:
         command: Command to execute
         timeout: Timeout in milliseconds (default: 30000)
         interval: Check interval in milliseconds (default: 2000)
-        
+
     Returns:
         ReadyCheck configuration
     """
@@ -103,4 +103,3 @@ def wait_for_command(command: str, timeout: int = 30000, interval: int = 2000) -
         timeout=timeout,
         interval=interval,
     )
-
