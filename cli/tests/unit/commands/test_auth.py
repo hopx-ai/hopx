@@ -60,13 +60,13 @@ class TestAuthCommandHelp:
         assert "status" in result.output.lower()
 
     @pytest.mark.unit
-    def test_auth_set_api_key_help(self) -> None:
-        """Auth set-api-key subcommand shows help."""
+    def test_auth_keys_create_help(self) -> None:
+        """Auth keys create subcommand shows help."""
         from hopx_cli.main import app as main_app
 
-        result = runner.invoke(main_app, ["auth", "set-api-key", "--help"])
+        result = runner.invoke(main_app, ["auth", "keys", "create", "--help"])
         assert result.exit_code == 0
-        assert "api" in result.output.lower() or "key" in result.output.lower()
+        assert "create" in result.output.lower() or "key" in result.output.lower()
 
 
 # =============================================================================

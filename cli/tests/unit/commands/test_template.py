@@ -211,13 +211,13 @@ class TestTemplateCommandHelp:
         assert "list" in result.output.lower() or "template" in result.output.lower()
 
     @pytest.mark.unit
-    def test_template_get_help(self) -> None:
-        """Template get subcommand shows help."""
+    def test_template_info_help(self) -> None:
+        """Template info subcommand shows help."""
         from hopx_cli.main import app as main_app
 
-        result = runner.invoke(main_app, ["template", "get", "--help"])
+        result = runner.invoke(main_app, ["template", "info", "--help"])
         assert result.exit_code == 0
-        assert "get" in result.output.lower() or "template" in result.output.lower()
+        assert "info" in result.output.lower() or "template" in result.output.lower()
 
     @pytest.mark.unit
     def test_template_delete_help(self) -> None:
