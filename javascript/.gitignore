@@ -49,8 +49,9 @@ CLAUDE.md
 .claude/
 
 # avoid accidental garbage collection
-!README.md
 *.md
+!README.md
+!tests/tests_README.md
 test*.py
 check*.py
 *.txt
