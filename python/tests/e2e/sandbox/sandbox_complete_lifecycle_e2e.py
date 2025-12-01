@@ -58,7 +58,7 @@ def test_complete_sandbox_lifecycle(api_key, cleanup_sandbox):
 
     # 6. Run commands
     cmd_result = sandbox.commands.run("echo 'Command executed'")
-    assert cmd_result.success is True
+    assert cmd_result.is_success is True
     assert "Command executed" in cmd_result.stdout
 
     # 7. Get metrics
@@ -135,7 +135,7 @@ print(f"Sum: {result}")
 
         # Step 4: Run it as a command
         cmd_result = sandbox.commands.run("python3 /workspace/calculator.py")
-        assert cmd_result.success is True
+        assert cmd_result.is_success is True
         assert "Sum: 8" in cmd_result.stdout
 
     finally:
