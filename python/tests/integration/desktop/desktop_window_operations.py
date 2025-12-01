@@ -16,7 +16,8 @@ from hopx_ai import Sandbox
 from hopx_ai.errors import DesktopNotAvailableError
 
 BASE_URL = os.getenv("HOPX_TEST_BASE_URL", "https://api-eu.hopx.dev")
-DESKTOP_TEMPLATE = os.getenv("HOPX_DESKTOP_TEMPLATE", "code-interpreter")
+# Use desktop-enabled template (ID: 399) by default
+DESKTOP_TEMPLATE = os.getenv("HOPX_DESKTOP_TEMPLATE", "399")
 
 
 class TestDesktopWindowOperations:
