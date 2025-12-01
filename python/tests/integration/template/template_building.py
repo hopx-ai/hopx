@@ -202,28 +202,27 @@ EOF""")
         assert result.template_id is not None
 
         # Create sandbox from template (can take 30+ seconds)
+        # Use template_id from build result, not template name
         with timed_operation("AsyncSandbox.create", warn_threshold=30.0, template=template_name):
-            sandbox = await AsyncSandbox.create(
-                template=template_name,
+            async with AsyncSandbox.create(
+                template_id=result.template_id,
+                api_key=api_key,
+                base_url=BASE_URL,
+                timeout_seconds=120,  # Add timeout to prevent hanging
+            ) as sandbox:
+                # Verify sandbox is running
+                info = await sandbox.get_info()
+                assert info.status == "running"
+        
+        # Cleanup template
+        try:
+            await AsyncSandbox.delete_template(
+                template_id=result.template_id,
                 api_key=api_key,
                 base_url=BASE_URL,
             )
-
-        try:
-            # Verify sandbox is running
-            info = await sandbox.get_info()
-            assert info.status == "running"
-        finally:
-            await sandbox.kill()
-            # Cleanup template
-            try:
-                await AsyncSandbox.delete_template(
-                    template_id=result.template_id,
-                    api_key=api_key,
-                    base_url=BASE_URL,
-                )
-            except Exception:
-                pass
+        except Exception:
+            pass
 
     @pytest.mark.asyncio
     async def test_template_from_ubuntu(self, api_key, template_name):

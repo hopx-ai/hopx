@@ -377,8 +377,15 @@ sleep 1
 echo "Ready"
 exit 0
 EOF""")
-            .run_cmd("chmod +x init.sh")
-            .set_start_cmd("python -m http.server 8000", wait_for_command("/app/init.sh"))
+            .run_cmd("""cat > start.sh << 'EOF'
+#!/bin/bash
+# Run initialization script first
+/app/init.sh
+# Then start the server
+python -m http.server 8000
+EOF""")
+            .run_cmd("chmod +x init.sh start.sh")
+            .set_start_cmd("/app/start.sh", wait_for_command("/app/init.sh"))
         )
 
         # Build the template (this can take 1+ minutes)

@@ -351,7 +351,7 @@ class TestTemplateBuilderMethods:
             base_url=BASE_URL,
             timeout_seconds=120,  # Add timeout to prevent hanging
         ) as sandbox:
-            exec_result = await sandbox.execute_code(
+            exec_result = await sandbox.run_code(
                 code="import os; print(os.getenv('TEST_VAR')); print(os.getenv('VAR1')); print(os.getenv('VAR2'))",
                 language="python"
             )
@@ -409,7 +409,7 @@ class TestTemplateBuilderMethods:
             base_url=BASE_URL,
             timeout_seconds=120,  # Add timeout to prevent hanging
         ) as sandbox:
-            exec_result = await sandbox.execute_code(
+            exec_result = await sandbox.run_code(
                 code="import os; print(os.getcwd())",
                 language="python"
             )
@@ -458,26 +458,92 @@ class TestTemplateBuilderMethods:
                     cpu=1,
                     memory=1024,
                     disk_gb=5,
+                    template_activation_timeout=600,  # 10 minutes timeout for template activation
                 ),
             )
         
         assert result.template_id is not None
         
+        # Explicitly verify template is active before creating sandbox
+        # Template.build() should wait, but let's double-check to avoid hanging
+        template_id = str(result.template_id)
+        max_wait = 300  # 5 minutes max wait
+        poll_interval = 3  # Poll every 3 seconds
+        start_time = time.time()
+        consecutive_active = 0
+        required_consecutive = 2
+        
+        async with aiohttp.ClientSession() as session:
+            while time.time() - start_time < max_wait:
+                try:
+                    async with session.get(
+                        f"{BASE_URL}/v1/templates/{template_id}",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                    ) as response:
+                        if response.ok:
+                            data = await response.json()
+                            status = data.get('status', 'unknown')
+                            is_active = data.get('is_active', False)
+                            
+                            if status == 'active' and is_active:
+                                consecutive_active += 1
+                                if consecutive_active >= required_consecutive:
+                                    break
+                            else:
+                                consecutive_active = 0
+                                if status in ('failed', 'error'):
+                                    error = data.get('error_message', 'Unknown error')
+                                    raise Exception(f"Template activation failed: {error}")
+                except Exception:
+                    pass
+                
+                await asyncio.sleep(poll_interval)
+            else:
+                raise TimeoutError(
+                    f"Template {template_id} did not become active within {max_wait} seconds. "
+                    f"Last status: {status if 'status' in locals() else 'unknown'}"
+                )
+        
         # Verify all steps worked
-        async with AsyncSandbox.create(
-            template_id=result.template_id,
-            api_key=api_key,
-            base_url=BASE_URL,
-            timeout_seconds=120,  # Add timeout to prevent hanging
-        ) as sandbox:
-            # Verify curl and git are installed
-            exec_result = await sandbox.execute_code(
-                code="import subprocess; curl = subprocess.run(['curl', '--version'], capture_output=True, text=True); git = subprocess.run(['git', '--version'], capture_output=True, text=True); print(curl.stdout); print(git.stdout)",
-                language="python"
-            )
-            assert exec_result.exit_code == 0
-            assert "curl" in exec_result.stdout.lower()
-            assert "git" in exec_result.stdout.lower()
+        # Use sync Sandbox with context manager (AsyncSandbox.create() hangs)
+        def create_and_test_sandbox():
+            """Helper function to run sync sandbox operations in thread"""
+            with Sandbox.create(
+                template_id=result.template_id,
+                api_key=api_key,
+                base_url=BASE_URL,
+                timeout_seconds=120,
+            ) as sandbox:
+                # Wait for sandbox VM to be ready before executing code
+                # Sandbox.create() returns immediately, but VM needs time to start
+                max_wait = 60  # Wait up to 60 seconds
+                poll_interval = 2  # Check every 2 seconds
+                start_time = time.time()
+                
+                while time.time() - start_time < max_wait:
+                    try:
+                        if sandbox.is_healthy():
+                            break
+                    except Exception:
+                        # Health check might fail if VM isn't ready yet
+                        pass
+                    time.sleep(poll_interval)
+                else:
+                    raise TimeoutError(
+                        f"Sandbox {sandbox.sandbox_id} did not become ready within {max_wait} seconds"
+                    )
+                
+                # Verify curl and git are installed using bash (Ubuntu may not have Python)
+                exec_result = sandbox.run_code(
+                    code="curl --version && git --version",
+                    language="bash"
+                )
+                return exec_result
+        
+        exec_result = await asyncio.to_thread(create_and_test_sandbox)
+        assert exec_result.exit_code == 0
+        assert "curl" in exec_result.stdout.lower()
+        assert "git" in exec_result.stdout.lower()
         
         # Cleanup
         try:
@@ -533,7 +599,7 @@ class TestTemplateBuilderMethods:
             base_url=BASE_URL,
             timeout_seconds=120,  # Add timeout to prevent hanging
         ) as sandbox:
-            exec_result = await sandbox.execute_code(
+            exec_result = await sandbox.run_code(
                 code="import os; files = os.listdir('/tmp/cpython'); print(f'Found {len(files)} files/dirs'); print('README.rst' in files or 'README.md' in files or 'setup.py' in files)",
                 language="python"
             )
@@ -590,12 +656,13 @@ class TestTemplateBuilderMethods:
             base_url=BASE_URL,
             timeout_seconds=120,  # Add timeout to prevent hanging
         ) as sandbox:
-            exec_result = await sandbox.execute_code(
+            exec_result = await sandbox.run_code(
                 code="import requests; print(requests.__version__)",
                 language="python"
             )
             assert exec_result.exit_code == 0
-            assert "requests" in exec_result.stdout.lower()
+            # The fact that it printed a version number means requests is installed
+            assert exec_result.stdout.strip()  # Verify we got output (version number)
         
         # Cleanup
         try:
