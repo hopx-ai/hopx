@@ -162,13 +162,48 @@ If a changed file doesn't match any mapping:
 
 This ensures nothing is missed, even if mappings are incomplete.
 
-## Manual Override
+## Test Directives (Override Auto-Detection)
 
-You can override automatic detection by:
+You can override automatic file-based detection by using test directives in PR descriptions or commit messages.
 
-1. **Workflow Dispatch**: Manually trigger workflow with specific feature
-2. **Commit Message**: Use `[test all]` to force all tests
-3. **Empty Feature**: Leave feature empty to use auto-detection
+### Format
+
+Use `[test: ...]` format anywhere in your PR description or commit messages:
+
+- `[test: desktop]` - Run all desktop tests
+- `[test: desktop, integration]` - Run desktop integration tests only
+- `[test: sandbox, e2e]` - Run sandbox e2e tests only
+- `[test: all]` - Run all tests (overrides file-based detection)
+- `[test: integration]` - Run all integration tests
+
+### Examples
+
+**In PR Description:**
+```markdown
+## Changes
+Fixes desktop VNC connection issue
+
+[test: desktop, integration]
+```
+
+**In Commit Message:**
+```bash
+git commit -m "fix: desktop VNC bug [test: desktop]"
+```
+
+### Priority Order
+
+1. **PR description directive** (highest priority) - If found, overrides everything
+2. **Commit message directive** - Used if PR description doesn't have directive
+3. **File-based auto-detection** - Default behavior when no directives found
+
+### Manual Override
+
+You can also override automatic detection by:
+
+1. **Workflow Dispatch**: Manually trigger workflow with specific test type and scope
+2. **Test Directives**: Use `[test: ...]` in PR description or commit messages (recommended)
+3. **Empty Scope**: Leave scope empty to use auto-detection
 
 ## Troubleshooting
 

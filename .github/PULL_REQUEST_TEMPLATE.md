@@ -42,6 +42,56 @@ pytest tests/test_feature.py
 npm test
 ```
 
+## 🎯 Test Scope Configuration (Optional)
+
+<!-- Control which tests run in CI by using test directives -->
+
+**Default Behavior:** Tests are automatically selected based on changed files.
+
+**Override Test Selection:** You can specify which tests to run by adding a test directive in your PR description or commit messages.
+
+### Test Directive Format
+
+Use `[test: ...]` format anywhere in your PR description or commit messages:
+
+- **Run specific feature tests:** `[test: desktop]` - Runs all desktop tests
+- **Run specific test type:** `[test: integration]` - Runs all integration tests
+- **Run feature + type:** `[test: desktop, integration]` - Runs only desktop integration tests
+- **Run all tests:** `[test: all]` - Runs all tests (overrides file-based detection)
+
+### Examples
+
+**In PR Description:**
+```markdown
+## Changes
+Fixes desktop VNC connection issue
+
+[test: desktop, integration]
+```
+
+**In Commit Message:**
+```bash
+git commit -m "fix: desktop VNC bug [test: desktop]"
+```
+
+**Available Test Scopes:**
+- `desktop` - Desktop automation tests
+- `sandbox` - Sandbox tests (integration + e2e)
+- `async_sandbox` or `async-sandbox` - Async sandbox tests
+- `template` - Template building tests
+- `terminal` - Terminal/WebSocket tests
+- Full path: `tests/integration/desktop/` (also supported)
+
+**Test Types:**
+- `integration` - Integration tests only
+- `e2e` - End-to-end tests only
+- `all` - Both integration and e2e (default)
+
+**Priority Order:**
+1. PR description directive (highest priority)
+2. Commit message directive
+3. File-based auto-detection (default)
+
 ## 📸 Screenshots / Videos
 
 <!-- If applicable, add screenshots or videos -->

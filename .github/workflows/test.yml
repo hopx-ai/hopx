@@ -1,5 +1,34 @@
 name: Test Suite
 
+# Configuration Options:
+# 
+# Test Type Selection (test_type):
+#   - 'integration': Run only integration tests
+#   - 'e2e': Run only e2e tests
+#   - 'all': Run both integration and e2e tests (default)
+#
+# Test Scope Selection (scope):
+#   - Feature/cycle name (e.g., 'desktop', 'sandbox', 'template', 'terminal')
+#   - Full test path (e.g., 'tests/integration/desktop/')
+#   - Leave empty to run all tests based on changed files
+#
+# Configuration Methods:
+#   1. Workflow Dispatch: Use inputs 'test_type' and 'scope'
+#   2. Commit Messages: Use [test: scope] or [test: scope, type] in commit messages
+#   3. PR Description: Use [test: scope] or [test: scope, type] in PR description
+#   4. Auto-detection: If not specified, runs all tests based on changed files
+#
+# Test Directive Format:
+#   - [test: desktop] - Run desktop tests (all types)
+#   - [test: desktop, integration] - Run desktop integration tests only
+#   - [test: sandbox, e2e] - Run sandbox e2e tests only
+#   - [test: all] - Run all tests (overrides file-based detection)
+#
+# Examples:
+#   - Run only desktop integration tests: test_type='integration', scope='desktop'
+#   - Run all e2e tests: test_type='e2e', scope=''
+#   - Run all tests for sandbox feature: test_type='all', scope='sandbox'
+
 on:
   pull_request:
     branches:
@@ -19,11 +48,6 @@ on:
       - '.github/test_mapper.py'
   workflow_dispatch:
     inputs:
-      test_feature:
-        description: 'Test feature (sandbox, template, desktop, etc.) - leave empty for auto-detection'
-        required: false
-        type: string
-        default: ''
       test_type:
         description: 'Test type (integration, e2e, or all)'
         required: false
@@ -33,6 +57,11 @@ on:
           - integration
           - e2e
         default: 'all'
+      scope:
+        description: 'Test scope (feature/cycle name, e.g., desktop, sandbox, template) - leave empty for all'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   determine-tests:
@@ -48,18 +77,156 @@ jobs:
         with:
           fetch-depth: 0  # Need full history for comparison
 
+      - name: Parse test directives from commits and PR
+        id: parse-test-directives
+        run: |
+          TEST_TYPE=""
+          TEST_SCOPE=""
+          
+          # Parse PR description if available
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            PR_BODY="${{ github.event.pull_request.body }}"
+            if [ -n "$PR_BODY" ]; then
+              # Look for [test: ...] patterns in PR description
+              if echo "$PR_BODY" | grep -qiE '\[test:\s*([^]]+)\]'; then
+                TEST_DIRECTIVE=$(echo "$PR_BODY" | grep -oiE '\[test:\s*([^]]+)\]' | head -1 | sed 's/\[test:\s*//;s/\]//' | tr -d ' ')
+                echo "Found test directive in PR description: $TEST_DIRECTIVE"
+                
+                # Parse directive: "desktop" or "desktop, integration" or "desktop, e2e" or "all" or "integration"
+                if echo "$TEST_DIRECTIVE" | grep -qiE '^all$'; then
+                  # [test: all] - run all tests
+                  TEST_SCOPE="all"
+                  TEST_TYPE="all"
+                elif echo "$TEST_DIRECTIVE" | grep -qiE '^(integration|e2e)$'; then
+                  # [test: integration] or [test: e2e] - just test type, no scope
+                  TEST_TYPE=$(echo "$TEST_DIRECTIVE" | tr '[:upper:]' '[:lower:]')
+                else
+                  # Has scope, possibly with type: "desktop" or "desktop, integration"
+                  if echo "$TEST_DIRECTIVE" | grep -q ','; then
+                    TEST_SCOPE=$(echo "$TEST_DIRECTIVE" | cut -d',' -f1 | tr -d ' ')
+                    TEST_TYPE_RAW=$(echo "$TEST_DIRECTIVE" | cut -d',' -f2 | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+                    if echo "$TEST_TYPE_RAW" | grep -qiE '^(integration|e2e)$'; then
+                      TEST_TYPE="$TEST_TYPE_RAW"
+                    fi
+                  else
+                    TEST_SCOPE="$TEST_DIRECTIVE"
+                  fi
+                fi
+              fi
+            fi
+          fi
+          
+          # Parse commit messages (check all commits in PR/push)
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            COMMITS=$(git log --format="%B" $BASE..$HEAD)
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+              COMMITS=$(git log --format="%B" ${{ github.event.before }}..${{ github.event.after }})
+            else
+              COMMITS=$(git log --format="%B" -1 HEAD)
+            fi
+          else
+            COMMITS=""
+          fi
+          
+          # Parse commit messages for [test: ...] patterns
+          if [ -n "$COMMITS" ]; then
+            COMMIT_DIRECTIVE=$(echo "$COMMITS" | grep -oiE '\[test:\s*([^]]+)\]' | head -1 | sed 's/\[test:\s*//;s/\]//' | tr -d ' ')
+            if [ -n "$COMMIT_DIRECTIVE" ]; then
+              echo "Found test directive in commit message: $COMMIT_DIRECTIVE"
+              # Only use commit directive if PR description didn't override
+              if [ -z "$TEST_SCOPE" ] && [ -z "$TEST_TYPE" ]; then
+                if echo "$COMMIT_DIRECTIVE" | grep -qiE '^all$'; then
+                  TEST_SCOPE="all"
+                  TEST_TYPE="all"
+                elif echo "$COMMIT_DIRECTIVE" | grep -qiE '^(integration|e2e)$'; then
+                  TEST_TYPE=$(echo "$COMMIT_DIRECTIVE" | tr '[:upper:]' '[:lower:]')
+                else
+                  if echo "$COMMIT_DIRECTIVE" | grep -q ','; then
+                    TEST_SCOPE=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f1 | tr -d ' ')
+                    TEST_TYPE_RAW=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f2 | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+                    if echo "$TEST_TYPE_RAW" | grep -qiE '^(integration|e2e)$'; then
+                      TEST_TYPE="$TEST_TYPE_RAW"
+                    fi
+                  else
+                    TEST_SCOPE="$COMMIT_DIRECTIVE"
+                  fi
+                fi
+              fi
+            fi
+          fi
+          
+          # Default to workflow dispatch inputs if no directives found
+          if [ -z "$TEST_TYPE" ] && [ -z "$TEST_SCOPE" ]; then
+            TEST_TYPE_INPUT="${{ github.event.inputs.test_type || '' }}"
+            TEST_SCOPE_INPUT="${{ github.event.inputs.scope || '' }}"
+            if [ -n "$TEST_TYPE_INPUT" ]; then
+              TEST_TYPE="$TEST_TYPE_INPUT"
+            fi
+            if [ -n "$TEST_SCOPE_INPUT" ]; then
+              TEST_SCOPE="$TEST_SCOPE_INPUT"
+            fi
+          fi
+          
+          # Set defaults
+          TEST_TYPE="${TEST_TYPE:-all}"
+          
+          echo "test_type=$TEST_TYPE" >> $GITHUB_OUTPUT
+          echo "test_scope=$TEST_SCOPE" >> $GITHUB_OUTPUT
+          echo "TEST_TYPE=$TEST_TYPE" >> $GITHUB_ENV
+          echo "TEST_SCOPE=$TEST_SCOPE" >> $GITHUB_ENV
+          
+          echo "Parsed test configuration:"
+          echo "  Type: $TEST_TYPE"
+          echo "  Scope: ${TEST_SCOPE:-'(auto-detect from files)'}"
+
       - name: Get changed files
         id: changed-files
         run: |
-          # Handle manual workflow dispatch with explicit feature
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.test_feature }}" ]; then
-            FEATURE="${{ github.event.inputs.test_feature }}"
-            if [ "$FEATURE" == "all" ]; then
+          TEST_TYPE="${TEST_TYPE:-all}"
+          TEST_SCOPE="${TEST_SCOPE:-}"
+          # Handle manual workflow dispatch or explicit scope from directives
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "$TEST_SCOPE" ]; then
+            SCOPE="$TEST_SCOPE"
+            if [ "$SCOPE" == "all" ]; then
               echo "" > changed_files.txt
             else
-              # Convert feature to path (e.g., "sandbox.listing" -> "hopx_ai/sandbox.py" or "tests/integration/sandbox/listing/")
-              FEATURE_PATH=$(echo "$FEATURE" | tr '.' '/')
-              echo "python/hopx_ai/${FEATURE_PATH}.py" > changed_files.txt
+              # Convert scope to test path (e.g., "desktop" -> "tests/integration/desktop/")
+              # Support both feature names and full paths
+              if [[ "$SCOPE" == tests/* ]]; then
+                echo "$SCOPE" > changed_files.txt
+              else
+                # Map common scope names to test paths
+                case "$SCOPE" in
+                  desktop)
+                    echo "tests/integration/desktop/" > changed_files.txt
+                    ;;
+                  sandbox)
+                    echo "tests/integration/sandbox/ tests/e2e/sandbox/" > changed_files.txt
+                    ;;
+                  async_sandbox|async-sandbox)
+                    echo "tests/integration/async_sandbox/ tests/e2e/async_sandbox/" > changed_files.txt
+                    ;;
+                  template)
+                    echo "tests/integration/template/" > changed_files.txt
+                    ;;
+                  terminal)
+                    echo "tests/integration/terminal/" > changed_files.txt
+                    ;;
+                  *)
+                    # Try to find matching test directory
+                    if [ -d "python/tests/integration/$SCOPE" ]; then
+                      echo "tests/integration/$SCOPE/" > changed_files.txt
+                    elif [ -d "python/tests/e2e/$SCOPE" ]; then
+                      echo "tests/e2e/$SCOPE/" > changed_files.txt
+                    else
+                      echo "python/hopx_ai/${SCOPE}.py" > changed_files.txt
+                    fi
+                    ;;
+                esac
+              fi
             fi
           # Handle PR
           elif [ "${{ github.event_name }}" == "pull_request" ]; then
@@ -81,20 +248,32 @@ jobs:
       - name: Map files to test paths
         id: map-tests
         run: |
+          # Get test_type and scope from previous steps (already in GITHUB_ENV)
+          TEST_TYPE="${TEST_TYPE:-all}"
+          TEST_SCOPE="${TEST_SCOPE:-}"
+          # Check if scope is directly specified (from workflow_dispatch, commit message, or PR description)
+          if [ -n "$TEST_SCOPE" ] && [ "$TEST_SCOPE" != "all" ]; then
+            # Scope is explicitly set - use it directly
+            if [[ "$TEST_SCOPE" == tests/* ]]; then
+              TEST_PATHS="$TEST_SCOPE"
+            elif [ -d "python/tests/integration/$TEST_SCOPE" ]; then
+              TEST_PATHS="tests/integration/$TEST_SCOPE/"
+            elif [ -d "python/tests/e2e/$TEST_SCOPE" ]; then
+              TEST_PATHS="tests/e2e/$TEST_SCOPE/"
+            else
+              # Try to map scope to test paths using test_mapper logic
+              echo "python/hopx_ai/${TEST_SCOPE}.py" > scope_files.txt
+              python3 .github/test_mapper.py scope_files.txt -v > mapper_output.txt || true
+              TEST_PATHS=$(grep "^test_paths=" mapper_output.txt | cut -d'=' -f2- || echo "")
+            fi
           # If no changed files or explicit "all", run all tests
-          if [ ! -s changed_files.txt ] || [ -z "$(cat changed_files.txt | tr -d '\n')" ]; then
-            echo "test_paths=tests/integration/ tests/e2e/" >> $GITHUB_OUTPUT
-            echo "run_integration=true" >> $GITHUB_OUTPUT
-            echo "run_e2e=true" >> $GITHUB_OUTPUT
-            echo "Running all tests (no specific changes detected)"
-            exit 0
-          fi
-          
-          # Use test mapper to determine test paths
-          TEST_TYPE="${{ github.event.inputs.test_type || 'all' }}"
+          elif [ ! -s changed_files.txt ] || [ -z "$(cat changed_files.txt | tr -d '\n')" ]; then
+            TEST_PATHS="tests/integration/ tests/e2e/"
+          else
+            # Use test mapper to determine test paths from changed files
           python3 .github/test_mapper.py changed_files.txt -v > mapper_output.txt || true
-          
           TEST_PATHS=$(grep "^test_paths=" mapper_output.txt | cut -d'=' -f2- || echo "")
+          fi
           
           # Filter by test type if specified
           if [ "$TEST_TYPE" == "integration" ]; then
@@ -106,20 +285,33 @@ jobs:
             RUN_INTEGRATION=false
             RUN_E2E=true
           else
+            # Keep both integration and e2e paths
             RUN_INTEGRATION=true
             RUN_E2E=true
           fi
           
-          # Fallback if no paths found
+          # Fallback if no paths found - run all tests
           if [ -z "$TEST_PATHS" ] || [ "$TEST_PATHS" == " " ]; then
+            if [ "$TEST_TYPE" == "integration" ]; then
+              TEST_PATHS="tests/integration/"
+              RUN_INTEGRATION=true
+              RUN_E2E=false
+            elif [ "$TEST_TYPE" == "e2e" ]; then
+              TEST_PATHS="tests/e2e/"
+              RUN_INTEGRATION=false
+              RUN_E2E=true
+            else
             TEST_PATHS="tests/integration/ tests/e2e/"
             RUN_INTEGRATION=true
             RUN_E2E=true
+            fi
           fi
           
           echo "test_paths=$TEST_PATHS" >> $GITHUB_OUTPUT
           echo "run_integration=$RUN_INTEGRATION" >> $GITHUB_OUTPUT
           echo "run_e2e=$RUN_E2E" >> $GITHUB_OUTPUT
+          echo "Test type: $TEST_TYPE"
+          echo "Test scope: ${TEST_SCOPE:-'(all)'}"
           echo "Test paths: $TEST_PATHS"
 
   test:

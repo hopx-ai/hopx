@@ -79,10 +79,11 @@ The workflows automatically determine which tests to run based on the source cod
 
 ### How It Works
 
-1. **Automatic Detection**: When you push code or create a PR, the workflow analyzes all changed files
-2. **Smart Mapping**: Changed source files are mapped to their corresponding test directories
-3. **Multiple Classes**: If multiple classes are changed, tests for all affected areas are run
-4. **Safety Fallback**: If no specific mapping is found, all tests run (ensures nothing is missed)
+1. **Test Directives** (highest priority): Check for `[test: ...]` in PR descriptions or commit messages
+2. **Automatic Detection**: If no directives found, analyze all changed files
+3. **Smart Mapping**: Changed source files are mapped to their corresponding test directories
+4. **Multiple Classes**: If multiple classes are changed, tests for all affected areas are run
+5. **Safety Fallback**: If no specific mapping is found, all tests run (ensures nothing is missed)
 
 ### Source Code to Test Mapping
 
@@ -147,22 +148,67 @@ Result: Runs all tests (safety):
 - tests/e2e/
 ```
 
+### Test Directives (Recommended)
+
+You can control which tests run by adding test directives in your PR description or commit messages. This is the easiest and most flexible way to specify test scope.
+
+#### Format
+
+Use `[test: ...]` format anywhere in your PR description or commit messages:
+
+- **Run specific feature tests:** `[test: desktop]` - Runs all desktop tests
+- **Run specific test type:** `[test: integration]` - Runs all integration tests
+- **Run feature + type:** `[test: desktop, integration]` - Runs only desktop integration tests
+- **Run all tests:** `[test: all]` - Runs all tests (overrides file-based detection)
+
+#### Examples
+
+**In PR Description:**
+```markdown
+## Changes
+Fixes desktop VNC connection issue
+
+[test: desktop, integration]
+```
+
+**In Commit Message:**
+```bash
+git commit -m "fix: desktop VNC bug [test: desktop]"
+```
+
+**Available Test Scopes:**
+- `desktop` - Desktop automation tests
+- `sandbox` - Sandbox tests (integration + e2e)
+- `async_sandbox` or `async-sandbox` - Async sandbox tests
+- `template` - Template building tests
+- `terminal` - Terminal/WebSocket tests
+- Full path: `tests/integration/desktop/` (also supported)
+
+**Test Types:**
+- `integration` - Integration tests only
+- `e2e` - End-to-end tests only
+- `all` - Both integration and e2e (default)
+
+**Priority Order:**
+1. PR description directive (highest priority)
+2. Commit message directive
+3. File-based auto-detection (default)
+
 ### Manual Test Selection
 
 You can manually trigger workflows with specific test selection:
 
 1. Go to **Actions** → Select workflow → **Run workflow**
 2. Choose options:
-   - **Test feature**: Enter feature name (e.g., `sandbox`, `template`, `sandbox.listing`)
    - **Test type**: Choose `integration`, `e2e`, or `all`
+   - **Scope**: Enter feature name (e.g., `desktop`, `sandbox`, `template`)
 3. Click **Run workflow**
 
 **Manual Examples:**
-- Feature: `sandbox` → Runs all sandbox tests
-- Feature: `sandbox.listing` → Runs only sandbox listing tests
-- Feature: `template` → Runs template tests
-- Feature: (empty) → Auto-detects from changed files
-- Feature: `all` → Runs all tests
+- Test type: `integration`, Scope: `desktop` → Runs desktop integration tests
+- Test type: `e2e`, Scope: `sandbox` → Runs sandbox e2e tests
+- Test type: `all`, Scope: (empty) → Auto-detects from changed files
+- Test type: `all`, Scope: `all` → Runs all tests
 
 ### Customization
 
