@@ -364,8 +364,14 @@ jobs:
           HOPX_TEST_TEMPLATE: ${{ secrets.HOPX_TEST_TEMPLATE || 'code-interpreter' }}
         run: |
           mkdir -p tests/reports/integration
-          # Extract integration test paths
-          INTEGRATION_PATHS=$(echo "${{ needs.determine-tests.outputs.test_paths }}" | grep -o "tests/integration/[^ ]*" | tr '\n' ' ' || echo "tests/integration/")
+          # Extract integration test paths - handle multiple space-separated paths correctly
+          TEST_PATHS="${{ needs.determine-tests.outputs.test_paths }}"
+          # Split by space and filter for integration paths, then join with spaces
+          INTEGRATION_PATHS=$(echo "$TEST_PATHS" | tr ' ' '\n' | grep "^tests/integration/" | tr '\n' ' ' | sed 's/ $//')
+          # Fallback if no paths found
+          if [ -z "$INTEGRATION_PATHS" ] || [ "$INTEGRATION_PATHS" == " " ]; then
+            INTEGRATION_PATHS="tests/integration/"
+          fi
           pytest $INTEGRATION_PATHS \
             -v \
             --cov=hopx_ai \
@@ -385,8 +391,14 @@ jobs:
           HOPX_TEST_TEMPLATE: ${{ secrets.HOPX_TEST_TEMPLATE || 'code-interpreter' }}
         run: |
           mkdir -p tests/reports/e2e
-          # Extract E2E test paths
-          E2E_PATHS=$(echo "${{ needs.determine-tests.outputs.test_paths }}" | grep -o "tests/e2e/[^ ]*" | tr '\n' ' ' || echo "tests/e2e/")
+          # Extract E2E test paths - handle multiple space-separated paths correctly
+          TEST_PATHS="${{ needs.determine-tests.outputs.test_paths }}"
+          # Split by space and filter for e2e paths, then join with spaces
+          E2E_PATHS=$(echo "$TEST_PATHS" | tr ' ' '\n' | grep "^tests/e2e/" | tr '\n' ' ' | sed 's/ $//')
+          # Fallback if no paths found
+          if [ -z "$E2E_PATHS" ] || [ "$E2E_PATHS" == " " ]; then
+            E2E_PATHS="tests/e2e/"
+          fi
           pytest $E2E_PATHS \
             -v \
             --cov=hopx_ai \
