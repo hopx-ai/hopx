@@ -2,6 +2,8 @@
 
 This directory contains GitHub Actions workflows for the Hopx Python SDK.
 
+> **Note:** Workflows can be triggered manually using `gh workflow run` command or automatically via push/pull_request events with test directives in commit messages or PR descriptions.
+
 ## Workflows
 
 ### `python-tests.yml` - Full Test Suite
