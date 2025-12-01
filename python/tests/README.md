@@ -432,12 +432,22 @@ python generate_manifest.py
 
 See [COVERAGE_REPORT.md](./COVERAGE_REPORT.md) for information about test coverage.
 
-To generate coverage reports:
+### Generating Coverage Reports Locally
+
+To generate coverage reports locally:
 
 ```bash
 cd python
 pytest tests/ --cov=hopx_ai --cov-report=html --cov-report=term
 ```
+
+### CI/CD Coverage
+
+Coverage is automatically generated in CI/CD workflows:
+- Coverage data is collected during test execution using `--cov=hopx_ai`
+- Coverage reports are uploaded to Codecov automatically
+- Coverage files (`.coverage`) are included in test artifacts
+- Coverage is generated for both integration and E2E tests
 
 ## Intentionally Untested Features
 
@@ -494,8 +504,10 @@ When you create a PR or push commits, the CI/CD workflow automatically determine
 
 By default, the workflow:
 1. Analyzes all changed files in your PR/push
-2. Maps changed source files to corresponding test directories
-3. Runs only the relevant tests
+2. Maps changed source files to corresponding test directories using `.github/test_mapper.py`
+3. Runs only the relevant tests (integration and/or e2e based on what changed)
+4. Runs tests across all Python versions (3.8, 3.9, 3.10, 3.11, 3.12)
+5. Generates coverage reports automatically
 
 ### Test Directives (Override Default)
 
@@ -539,19 +551,28 @@ git commit -m "fix: desktop VNC bug [test: desktop]"
 - `all` - Both integration and e2e (default)
 
 **Priority Order:**
-1. PR description directive (highest priority)
-2. Commit message directive
-3. File-based auto-detection (default)
+1. PR description directive (highest priority) - `[test: ...]` in PR description
+2. Commit message directive - `[test: ...]` in commit messages
+3. Workflow dispatch inputs - Manual workflow trigger with inputs
+4. File-based auto-detection (default) - Automatic detection from changed files
+
+**Note:** Test directives work for both `push` and `pull_request` events. When both events trigger (push to PR branch), the `pull_request` event takes precedence.
 
 ### Viewing Test Reports
 
 After CI runs, you can view test reports:
 
 1. **GitHub Actions Artifacts**: Go to the workflow run → Download artifacts
-2. **PR Comments**: Quick test workflow posts results as PR comments
-3. **Codecov**: Coverage reports are uploaded to Codecov
+   - Test reports (HTML, JUnit XML) are available as downloadable artifacts
+   - Coverage files (`.coverage`) are included in artifacts
+   - Reports are retained for 7 days
+2. **PR Comments**: Quick test workflow (`python-tests-quick.yml`) posts results as PR comments
+3. **Codecov**: Coverage reports are automatically uploaded to Codecov
+   - Coverage is generated during test execution
+   - Reports are available on Codecov dashboard
+4. **GitHub Actions Logs**: View detailed test execution logs in the workflow run
 
-See [GitHub Workflows README](../../.github/workflows/README.md) for more details.
+See [GitHub Workflows README](../../.github/workflows/README.md) for more details about the CI/CD workflows.
 
 ## Contributing
 
