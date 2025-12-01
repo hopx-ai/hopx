@@ -5,6 +5,8 @@ Map source code changes to test paths.
 This script analyzes changed files and determines which tests should be run
 based on the source code that was modified. It handles multiple files,
 multiple commits, and provides intelligent test path selection.
+
+Used by GitHub Actions workflows for intelligent test selection.
 """
 
 import sys
