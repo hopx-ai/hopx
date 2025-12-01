@@ -83,6 +83,8 @@ Tests for the asynchronous `AsyncSandbox` class, mirroring the structure of Sand
 - **resources/** - Async resource operations
 
 #### Desktop Tests (`integration/desktop/`)
+**Status:** ⚠️ **Pending** - Desktop tests are blocked pending availability of a desktop-enabled template/image.
+
 Tests for desktop automation features:
 - Screenshots (full screen, region, window)
 - Window management
@@ -99,6 +101,8 @@ Tests for template building and management:
 - Template ready checks
 
 #### Terminal Tests (`integration/terminal/`)
+**Status:** ⚠️ **Postponed** - Terminal tests have been postponed for future implementation.
+
 Tests for terminal and WebSocket features:
 - WebSocket terminal connections
 - Terminal operations
@@ -156,6 +160,8 @@ For detailed commands for every test file, class, and method, see [TEST_COMMANDS
 
 ## End-to-End Tests
 
+**Status:** ⚠️ **Postponed** - E2E tests have been postponed for future implementation alongside terminal tests.
+
 E2E tests verify complete user workflows and scenarios using the SDK. These tests ensure that multiple features work together correctly.
 
 ### Test Files
@@ -176,7 +182,7 @@ pytest tests/e2e/sandbox/sandbox_complete_lifecycle_e2e.py
 
 ## Test Status
 
-All tests in the test suite have been run and tested, with the following exceptions:
+Most tests in the test suite have been run and tested. The following test categories are pending or postponed:
 
 ### Desktop Tests - Pending
 
