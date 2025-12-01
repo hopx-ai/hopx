@@ -22,7 +22,7 @@ def generate_manifest():
     for report_dir in sorted(reports_dir.iterdir()):
         if not report_dir.is_dir():
             continue
-        
+        print('hi!');
         # Skip hidden directories and the current directory
         if report_dir.name.startswith('.'):
             continue
