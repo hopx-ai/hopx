@@ -108,15 +108,17 @@ jobs:
                   # [test: integration] or [test: e2e] - just test type, no scope
                   TEST_TYPE=$(echo "$TEST_DIRECTIVE" | tr '[:upper:]' '[:lower:]')
                 else
-                  # Has scope, possibly with type: "desktop" or "desktop, integration"
+                  # Has scope, possibly with type: "desktop" or "desktop, integration" or "path1 path2, integration"
                   if echo "$TEST_DIRECTIVE" | grep -q ','; then
-                    TEST_SCOPE=$(echo "$TEST_DIRECTIVE" | cut -d',' -f1 | tr -d ' ')
-                    TEST_TYPE_RAW=$(echo "$TEST_DIRECTIVE" | cut -d',' -f2 | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+                    # Split by comma, preserve spaces in scope (first part), trim type (second part)
+                    TEST_SCOPE=$(echo "$TEST_DIRECTIVE" | cut -d',' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    TEST_TYPE_RAW=$(echo "$TEST_DIRECTIVE" | cut -d',' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')
                     if echo "$TEST_TYPE_RAW" | grep -qiE '^(integration|e2e)$'; then
                       TEST_TYPE="$TEST_TYPE_RAW"
                     fi
                   else
-                    TEST_SCOPE="$TEST_DIRECTIVE"
+                    # No comma, entire directive is scope (preserve spaces)
+                    TEST_SCOPE=$(echo "$TEST_DIRECTIVE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                   fi
                 fi
               fi
@@ -140,7 +142,8 @@ jobs:
           
           # Parse commit messages for [test: ...] patterns
           if [ -n "$COMMITS" ]; then
-            COMMIT_DIRECTIVE=$(echo "$COMMITS" | grep -oiE '\[test:\s*([^]]+)\]' | head -1 | sed 's/\[test:\s*//;s/\]//' | tr -d ' ')
+            # Extract directive, preserving spaces (only trim leading/trailing from the extracted part)
+            COMMIT_DIRECTIVE=$(echo "$COMMITS" | grep -oiE '\[test:\s*([^]]+)\]' | head -1 | sed 's/\[test:\s*//;s/\]//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             if [ -n "$COMMIT_DIRECTIVE" ]; then
               echo "Found test directive in commit message: $COMMIT_DIRECTIVE"
               # Only use commit directive if PR description didn't override
@@ -152,13 +155,15 @@ jobs:
                   TEST_TYPE=$(echo "$COMMIT_DIRECTIVE" | tr '[:upper:]' '[:lower:]')
                 else
                   if echo "$COMMIT_DIRECTIVE" | grep -q ','; then
-                    TEST_SCOPE=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f1 | tr -d ' ')
-                    TEST_TYPE_RAW=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f2 | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+                    # Split by comma, preserve spaces in scope (first part), trim type (second part)
+                    TEST_SCOPE=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    TEST_TYPE_RAW=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')
                     if echo "$TEST_TYPE_RAW" | grep -qiE '^(integration|e2e)$'; then
                       TEST_TYPE="$TEST_TYPE_RAW"
                     fi
                   else
-                    TEST_SCOPE="$COMMIT_DIRECTIVE"
+                    # No comma, entire directive is scope (preserve spaces)
+                    TEST_SCOPE=$(echo "$COMMIT_DIRECTIVE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                   fi
                 fi
               fi
