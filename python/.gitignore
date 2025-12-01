@@ -12,4 +12,4 @@
 # test report specific ignore list
 tests/reports/*
 !tests/reports/generate_manifest.py
-!tests/reports/index.html
+
