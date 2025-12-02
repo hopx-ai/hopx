@@ -1,0 +1,641 @@
+name: Python SDK Test Suite
+
+# Configuration Options:
+# 
+# Test Type Selection (test_type):
+#   - 'integration': Run only integration tests
+#   - 'e2e': Run only e2e tests
+#   - 'all': Run both integration and e2e tests (default)
+#
+# Test Scope Selection (scope):
+#   - Feature/cycle name (e.g., 'desktop', 'sandbox', 'template', 'terminal')
+#   - Full test path (e.g., 'tests/integration/desktop/')
+#   - Leave empty to run all tests based on changed files
+#
+# Python Version Selection (python_version):
+#   - Comma-separated versions (e.g., '3.10,3.11' or '3.11')
+#   - Leave empty to run all supported versions (3.8, 3.9, 3.10, 3.11, 3.12)
+#
+# Configuration Methods:
+#   1. Workflow Dispatch: Use inputs 'test_type', 'scope', and 'python_version'
+#   2. Commit Messages: Use [test: scope] and [python: version] in commit messages
+#   3. PR Description: Use [test: scope] and [python: version] in PR description
+#   4. Auto-detection: If not specified, runs all tests on all Python versions based on changed files
+#
+# Test Directive Format:
+#   - [test: desktop] - Run desktop tests (all types)
+#   - [test: desktop, integration] - Run desktop integration tests only
+#   - [test: sandbox, e2e] - Run sandbox e2e tests only
+#   - [test: all] - Run all tests (overrides file-based detection)
+#   - [python: 3.11] - Run tests on Python 3.11 only
+#   - [python: 3.10,3.11,3.12] - Run tests on multiple Python versions
+#
+# Examples:
+#   - Run only desktop integration tests: test_type='integration', scope='desktop'
+#   - Run all e2e tests: test_type='e2e', scope=''
+#   - Run all tests for sandbox feature: test_type='all', scope='sandbox'
+#   - In commit/PR: [test: sandbox] [python: 3.11] - Run sandbox tests on Python 3.11
+#   - In commit/PR: [test: desktop, integration] [python: 3.10,3.11] - Run desktop integration tests on Python 3.10 and 3.11
+
+on:
+  pull_request:
+    branches:
+      - main
+      - test
+    paths:
+      - 'python/**'
+      - '.github/workflows/python-tests.yml'
+      - '.github/test_mapper.py'
+  push:
+    branches:
+      - main
+      - test
+    paths:
+      - 'python/**'
+      - '.github/workflows/python-tests.yml'
+      - '.github/test_mapper.py'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type (integration, e2e, or all)'
+        required: false
+        type: choice
+        options:
+          - all
+          - integration
+          - e2e
+        default: 'all'
+      scope:
+        description: 'Test scope (feature/cycle name, e.g., desktop, sandbox, template) - leave empty for all'
+        required: false
+        type: string
+        default: ''
+      python_version:
+        description: 'Python version(s) to test (comma-separated, e.g., "3.10,3.11" or "3.11") - leave empty for all versions'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  determine-tests:
+    name: Determine Test Scope
+    runs-on: ubuntu-latest
+    # Skip push events for PR branches to avoid duplicate runs
+    # Only run push events for direct pushes to main/test (not from PR branches)
+    # PR branches will be handled by pull_request event
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test'))
+    outputs:
+      test_paths: ${{ steps.map-tests.outputs.test_paths }}
+      run_integration: ${{ steps.map-tests.outputs.run_integration }}
+      run_e2e: ${{ steps.map-tests.outputs.run_e2e }}
+      python_versions: ${{ steps.map-tests.outputs.python_versions }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for comparison
+
+      - name: Parse test directives from commits and PR
+        id: parse-test-directives
+        run: |
+          TEST_TYPE=""
+          TEST_SCOPE=""
+          PYTHON_VERSION=""
+          
+          # Parse PR description if available
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            PR_BODY="${{ github.event.pull_request.body }}"
+            if [ -n "$PR_BODY" ]; then
+              # Look for [test: ...] patterns in PR description
+              if echo "$PR_BODY" | grep -qiE '\[test:\s*([^]]+)\]'; then
+                TEST_DIRECTIVE=$(echo "$PR_BODY" | grep -oiE '\[test:\s*([^]]+)\]' | head -1 | sed 's/\[test:\s*//;s/\]//' | tr -d ' ')
+                echo "Found test directive in PR description: $TEST_DIRECTIVE"
+                
+                # Parse directive: "desktop" or "desktop, integration" or "desktop, e2e" or "all" or "integration"
+                if echo "$TEST_DIRECTIVE" | grep -qiE '^all$'; then
+                  # [test: all] - run all tests
+                  TEST_SCOPE="all"
+                  TEST_TYPE="all"
+                elif echo "$TEST_DIRECTIVE" | grep -qiE '^(integration|e2e)$'; then
+                  # [test: integration] or [test: e2e] - just test type, no scope
+                  TEST_TYPE=$(echo "$TEST_DIRECTIVE" | tr '[:upper:]' '[:lower:]')
+                else
+                  # Has scope, possibly with type: "desktop" or "desktop, integration" or "path1 path2, integration"
+                  if echo "$TEST_DIRECTIVE" | grep -q ','; then
+                    # Split by comma, preserve spaces in scope (first part), trim type (second part)
+                    TEST_SCOPE=$(echo "$TEST_DIRECTIVE" | cut -d',' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    TEST_TYPE_RAW=$(echo "$TEST_DIRECTIVE" | cut -d',' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')
+                    if echo "$TEST_TYPE_RAW" | grep -qiE '^(integration|e2e)$'; then
+                      TEST_TYPE="$TEST_TYPE_RAW"
+                    fi
+                  else
+                    # No comma, entire directive is scope (preserve spaces)
+                    TEST_SCOPE=$(echo "$TEST_DIRECTIVE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                  fi
+                fi
+              fi
+              
+              # Look for [python: ...] patterns in PR description
+              if echo "$PR_BODY" | grep -qiE '\[python:\s*([^]]+)\]'; then
+                PYTHON_DIRECTIVE=$(echo "$PR_BODY" | grep -oiE '\[python:\s*([^]]+)\]' | head -1 | sed 's/\[python:\s*//;s/\]//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                echo "Found Python version directive in PR description: $PYTHON_DIRECTIVE"
+                PYTHON_VERSION="$PYTHON_DIRECTIVE"
+              fi
+            fi
+          fi
+          
+          # Parse commit messages (check all commits in PR/push)
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            COMMITS=$(git log --format="%B" $BASE..$HEAD)
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+              COMMITS=$(git log --format="%B" ${{ github.event.before }}..${{ github.event.after }})
+            else
+              COMMITS=$(git log --format="%B" -1 HEAD)
+            fi
+          else
+            COMMITS=""
+          fi
+          
+          # Parse commit messages for [test: ...] patterns
+          if [ -n "$COMMITS" ]; then
+            # Extract directive, preserving spaces (only trim leading/trailing from the extracted part)
+            COMMIT_DIRECTIVE=$(echo "$COMMITS" | grep -oiE '\[test:\s*([^]]+)\]' | head -1 | sed 's/\[test:\s*//;s/\]//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [ -n "$COMMIT_DIRECTIVE" ]; then
+              echo "Found test directive in commit message: $COMMIT_DIRECTIVE"
+              # Only use commit directive if PR description didn't override
+              if [ -z "$TEST_SCOPE" ] && [ -z "$TEST_TYPE" ]; then
+                if echo "$COMMIT_DIRECTIVE" | grep -qiE '^all$'; then
+                  TEST_SCOPE="all"
+                  TEST_TYPE="all"
+                elif echo "$COMMIT_DIRECTIVE" | grep -qiE '^(integration|e2e)$'; then
+                  TEST_TYPE=$(echo "$COMMIT_DIRECTIVE" | tr '[:upper:]' '[:lower:]')
+                else
+                  if echo "$COMMIT_DIRECTIVE" | grep -q ','; then
+                    # Split by comma, preserve spaces in scope (first part), trim type (second part)
+                    TEST_SCOPE=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    TEST_TYPE_RAW=$(echo "$COMMIT_DIRECTIVE" | cut -d',' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')
+                    if echo "$TEST_TYPE_RAW" | grep -qiE '^(integration|e2e)$'; then
+                      TEST_TYPE="$TEST_TYPE_RAW"
+                    fi
+                  else
+                    # No comma, entire directive is scope (preserve spaces)
+                    TEST_SCOPE=$(echo "$COMMIT_DIRECTIVE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                  fi
+                fi
+              fi
+            fi
+            
+            # Parse commit messages for [python: ...] patterns
+            COMMIT_PYTHON_DIRECTIVE=$(echo "$COMMITS" | grep -oiE '\[python:\s*([^]]+)\]' | head -1 | sed 's/\[python:\s*//;s/\]//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [ -n "$COMMIT_PYTHON_DIRECTIVE" ]; then
+              echo "Found Python version directive in commit message: $COMMIT_PYTHON_DIRECTIVE"
+              # Only use commit directive if PR description didn't override
+              if [ -z "$PYTHON_VERSION" ]; then
+                PYTHON_VERSION="$COMMIT_PYTHON_DIRECTIVE"
+              fi
+            fi
+          fi
+          
+          # Default to workflow dispatch inputs if no directives found
+          if [ -z "$TEST_TYPE" ] && [ -z "$TEST_SCOPE" ]; then
+            TEST_TYPE_INPUT="${{ github.event.inputs.test_type || '' }}"
+            TEST_SCOPE_INPUT="${{ github.event.inputs.scope || '' }}"
+            if [ -n "$TEST_TYPE_INPUT" ]; then
+              TEST_TYPE="$TEST_TYPE_INPUT"
+            fi
+            if [ -n "$TEST_SCOPE_INPUT" ]; then
+              TEST_SCOPE="$TEST_SCOPE_INPUT"
+            fi
+          fi
+          
+          # Default Python version from workflow dispatch input if not found in directives
+          if [ -z "$PYTHON_VERSION" ]; then
+            PYTHON_VERSION_INPUT="${{ github.event.inputs.python_version || '' }}"
+            if [ -n "$PYTHON_VERSION_INPUT" ]; then
+              PYTHON_VERSION="$PYTHON_VERSION_INPUT"
+            fi
+          fi
+          
+          # Set defaults
+          TEST_TYPE="${TEST_TYPE:-all}"
+          
+          echo "test_type=$TEST_TYPE" >> $GITHUB_OUTPUT
+          echo "test_scope=$TEST_SCOPE" >> $GITHUB_OUTPUT
+          echo "python_version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
+          echo "TEST_TYPE=$TEST_TYPE" >> $GITHUB_ENV
+          echo "TEST_SCOPE=$TEST_SCOPE" >> $GITHUB_ENV
+          echo "PYTHON_VERSION=$PYTHON_VERSION" >> $GITHUB_ENV
+          
+          echo "Parsed test configuration:"
+          echo "  Type: $TEST_TYPE"
+          echo "  Scope: ${TEST_SCOPE:-'(auto-detect from files)'}"
+          echo "  Python version: ${PYTHON_VERSION:-'(all versions)'}"
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          TEST_TYPE="${TEST_TYPE:-all}"
+          TEST_SCOPE="${TEST_SCOPE:-}"
+          
+          # Handle explicit scope from directives (for all event types: push, PR, workflow_dispatch)
+          if [ -n "$TEST_SCOPE" ]; then
+            SCOPE="$TEST_SCOPE"
+            if [ "$SCOPE" == "all" ]; then
+              # [test: all] - run all tests, don't use file-based detection
+              echo "" > changed_files.txt
+            else
+              # Convert scope to test path (e.g., "desktop" -> "tests/integration/desktop/")
+              # Support both feature names and full paths
+              if [[ "$SCOPE" == tests/* ]]; then
+                echo "$SCOPE" > changed_files.txt
+              else
+                # Map common scope names to test paths
+                case "$SCOPE" in
+                  desktop)
+                    echo "tests/integration/desktop/" > changed_files.txt
+                    ;;
+                  sandbox)
+                    echo "tests/integration/sandbox/ tests/e2e/sandbox/" > changed_files.txt
+                    ;;
+                  async_sandbox|async-sandbox)
+                    echo "tests/integration/async_sandbox/ tests/e2e/async_sandbox/" > changed_files.txt
+                    ;;
+                  template)
+                    echo "tests/integration/template/" > changed_files.txt
+                    ;;
+                  terminal)
+                    echo "tests/integration/terminal/" > changed_files.txt
+                    ;;
+                  *)
+                    # Try to find matching test directory
+                    if [ -d "python/tests/integration/$SCOPE" ]; then
+                      echo "tests/integration/$SCOPE/" > changed_files.txt
+                    elif [ -d "python/tests/e2e/$SCOPE" ]; then
+                      echo "tests/e2e/$SCOPE/" > changed_files.txt
+                    else
+                      echo "python/hopx_ai/${SCOPE}.py" > changed_files.txt
+                    fi
+                    ;;
+                esac
+              fi
+            fi
+          # Handle PR (only if no scope directive)
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            git diff --name-only $BASE...$HEAD > changed_files.txt
+          # Handle push (only if no scope directive)
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+              git diff --name-only ${{ github.event.before }}...${{ github.event.after }} > changed_files.txt
+            else
+              git diff --name-only HEAD~1 HEAD > changed_files.txt
+            fi
+          fi
+          
+          echo "Changed files:"
+          cat changed_files.txt || echo "(empty - will run all tests)"
+
+      - name: Map files to test paths
+        id: map-tests
+        run: |
+          # Get test_type and scope from previous steps (already in GITHUB_ENV)
+          TEST_TYPE="${TEST_TYPE:-all}"
+          TEST_SCOPE="${TEST_SCOPE:-}"
+          
+          # Handle explicit "all" scope first
+          if [ -n "$TEST_SCOPE" ] && [ "$TEST_SCOPE" == "all" ]; then
+            # [test: all] - run all tests
+            TEST_PATHS="tests/integration/ tests/e2e/"
+          # Check if scope is directly specified (but not "all")
+          elif [ -n "$TEST_SCOPE" ] && [ "$TEST_SCOPE" != "all" ]; then
+            # Scope is explicitly set - use it directly
+            if [[ "$TEST_SCOPE" == tests/* ]]; then
+              TEST_PATHS="$TEST_SCOPE"
+            elif [ -d "python/tests/integration/$TEST_SCOPE" ]; then
+              TEST_PATHS="tests/integration/$TEST_SCOPE/"
+            elif [ -d "python/tests/e2e/$TEST_SCOPE" ]; then
+              TEST_PATHS="tests/e2e/$TEST_SCOPE/"
+            else
+              # Try to map scope to test paths using test_mapper logic
+              echo "python/hopx_ai/${TEST_SCOPE}.py" > scope_files.txt
+              python3 .github/test_mapper.py scope_files.txt -v > mapper_output.txt || true
+              TEST_PATHS=$(grep "^test_paths=" mapper_output.txt | cut -d'=' -f2- || echo "")
+            fi
+          # If no changed files or explicit "all", run all tests
+          elif [ ! -s changed_files.txt ] || [ -z "$(cat changed_files.txt | tr -d '\n')" ]; then
+            TEST_PATHS="tests/integration/ tests/e2e/"
+          else
+            # Use test mapper to determine test paths from changed files
+            python3 .github/test_mapper.py changed_files.txt -v > mapper_output.txt || true
+            TEST_PATHS=$(grep "^test_paths=" mapper_output.txt | cut -d'=' -f2- || echo "")
+          fi
+          
+          # Filter by test type if specified
+          if [ "$TEST_TYPE" == "integration" ]; then
+            TEST_PATHS=$(echo "$TEST_PATHS" | grep -o "tests/integration/[^ ]*" | tr '\n' ' ' || echo "tests/integration/")
+            RUN_INTEGRATION=true
+            RUN_E2E=false
+          elif [ "$TEST_TYPE" == "e2e" ]; then
+            TEST_PATHS=$(echo "$TEST_PATHS" | grep -o "tests/e2e/[^ ]*" | tr '\n' ' ' || echo "tests/e2e/")
+            RUN_INTEGRATION=false
+            RUN_E2E=true
+          else
+            # Keep both integration and e2e paths
+            RUN_INTEGRATION=true
+            RUN_E2E=true
+          fi
+          
+          # Fallback if no paths found - run all tests
+          if [ -z "$TEST_PATHS" ] || [ "$TEST_PATHS" == " " ]; then
+            if [ "$TEST_TYPE" == "integration" ]; then
+              TEST_PATHS="tests/integration/"
+              RUN_INTEGRATION=true
+              RUN_E2E=false
+            elif [ "$TEST_TYPE" == "e2e" ]; then
+              TEST_PATHS="tests/e2e/"
+              RUN_INTEGRATION=false
+              RUN_E2E=true
+            else
+            TEST_PATHS="tests/integration/ tests/e2e/"
+            RUN_INTEGRATION=true
+            RUN_E2E=true
+            fi
+          fi
+          
+          echo "test_paths=$TEST_PATHS" >> $GITHUB_OUTPUT
+          echo "run_integration=$RUN_INTEGRATION" >> $GITHUB_OUTPUT
+          echo "run_e2e=$RUN_E2E" >> $GITHUB_OUTPUT
+          echo "Test type: $TEST_TYPE"
+          echo "Test scope: ${TEST_SCOPE:-'(all)'}"
+          echo "Test paths: $TEST_PATHS"
+          
+          # Determine Python versions to test
+          # Get from parsed directives (commit/PR) or workflow dispatch input
+          PYTHON_VERSION_INPUT="${PYTHON_VERSION:-${{ github.event.inputs.python_version || '' }}}"
+          if [ -n "$PYTHON_VERSION_INPUT" ]; then
+            # Parse comma-separated versions and create JSON array
+            # Convert "3.10,3.11" to ["3.10", "3.11"]
+            PYTHON_VERSIONS=$(echo "$PYTHON_VERSION_INPUT" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')
+            PYTHON_VERSIONS="[$PYTHON_VERSIONS]"
+          else
+            # Default to all supported versions
+            PYTHON_VERSIONS='["3.8", "3.9", "3.10", "3.11", "3.12"]'
+          fi
+          
+          # Ensure python_versions is always set (required for fromJSON)
+          if [ -z "$PYTHON_VERSIONS" ]; then
+            PYTHON_VERSIONS='["3.8", "3.9", "3.10", "3.11", "3.12"]'
+          fi
+          
+          echo "python_versions=$PYTHON_VERSIONS" >> $GITHUB_OUTPUT
+          echo "Python versions: $PYTHON_VERSIONS"
+
+  test:
+    name: Test Python SDK
+    needs: determine-tests
+    if: needs.determine-tests.outputs.run_integration == 'true' || needs.determine-tests.outputs.run_e2e == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ${{ fromJSON(needs.determine-tests.outputs.python_versions || '["3.8", "3.9", "3.10", "3.11", "3.12"]') }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: ./python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-asyncio pytest-xdist pytest-cov pytest-html pytest-timeout
+
+      - name: Run integration tests
+        if: needs.determine-tests.outputs.run_integration == 'true'
+        working-directory: ./python
+        env:
+          HOPX_API_KEY: ${{ secrets.HOPX_API_KEY }}
+          HOPX_TEST_BASE_URL: ${{ secrets.HOPX_TEST_BASE_URL || 'https://api-eu.hopx.dev' }}
+          HOPX_TEST_TEMPLATE: ${{ secrets.HOPX_TEST_TEMPLATE || 'code-interpreter' }}
+        run: |
+          mkdir -p tests/reports/integration
+          # Extract integration test paths - handle multiple space-separated paths correctly
+          TEST_PATHS="${{ needs.determine-tests.outputs.test_paths }}"
+          # Split by space and filter for integration paths, then join with spaces
+          INTEGRATION_PATHS=$(echo "$TEST_PATHS" | tr ' ' '\n' | grep "^tests/integration/" | tr '\n' ' ' | sed 's/ $//')
+          # Fallback if no paths found
+          if [ -z "$INTEGRATION_PATHS" ] || [ "$INTEGRATION_PATHS" == " " ]; then
+            INTEGRATION_PATHS="tests/integration/"
+          fi
+          pytest $INTEGRATION_PATHS \
+            -v \
+            --cov=hopx_ai \
+            --cov-report=term-missing \
+            --showlocals \
+            --junitxml=tests/reports/integration/junit_${{ matrix.python-version }}.xml \
+            --html=tests/reports/integration/report_${{ matrix.python-version }}.html \
+            --self-contained-html \
+            -r fExs
+
+      - name: Run E2E tests
+        if: needs.determine-tests.outputs.run_e2e == 'true'
+        working-directory: ./python
+        env:
+          HOPX_API_KEY: ${{ secrets.HOPX_API_KEY }}
+          HOPX_TEST_BASE_URL: ${{ secrets.HOPX_TEST_BASE_URL || 'https://api-eu.hopx.dev' }}
+          HOPX_TEST_TEMPLATE: ${{ secrets.HOPX_TEST_TEMPLATE || 'code-interpreter' }}
+        run: |
+          mkdir -p tests/reports/e2e
+          # Extract E2E test paths - handle multiple space-separated paths correctly
+          TEST_PATHS="${{ needs.determine-tests.outputs.test_paths }}"
+          # Split by space and filter for e2e paths, then join with spaces
+          E2E_PATHS=$(echo "$TEST_PATHS" | tr ' ' '\n' | grep "^tests/e2e/" | tr '\n' ' ' | sed 's/ $//')
+          # Fallback if no paths found
+          if [ -z "$E2E_PATHS" ] || [ "$E2E_PATHS" == " " ]; then
+            E2E_PATHS="tests/e2e/"
+          fi
+          pytest $E2E_PATHS \
+            -v \
+            --cov=hopx_ai \
+            --cov-report=term-missing \
+            --cov-append \
+            --showlocals \
+            --junitxml=tests/reports/e2e/junit_${{ matrix.python-version }}.xml \
+            --html=tests/reports/e2e/report_${{ matrix.python-version }}.html \
+            --self-contained-html \
+            -r fExs
+        continue-on-error: true  # E2E tests may be flaky
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.python-version }}
+          path: |
+            python/tests/reports/**
+            python/.coverage
+          retention-days: 7
+
+      - name: Upload coverage reports
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./python/.coverage
+          flags: unittests
+          name: codecov-${{ matrix.python-version }}
+          fail_ci_if_error: false
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+
+    steps:
+      - name: Download all test reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-reports-*
+          merge-multiple: true
+          path: test-reports
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tests completed for all Python versions." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f test-reports/test_summary.md ]; then
+            cat test-reports/test_summary.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+  create-test-issues:
+    name: Create GitHub Issues for Test Failures
+    runs-on: ubuntu-latest
+    needs: test
+    if: failure() || always()  # Run even if tests pass to check for failures
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download all test reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-reports-*
+          merge-multiple: true
+          path: test-reports
+
+      - name: Find and merge JUnit XML files
+        id: find-junit
+        run: |
+          # Find all JUnit XML files
+          find test-reports -name "*.xml" -type f > junit_files.txt || true
+          
+          if [ -s junit_files.txt ]; then
+            # If multiple files, we'll process the first comprehensive one
+            # or merge them if needed
+            JUNIT_FILE=$(head -1 junit_files.txt)
+            echo "junit_file=$JUNIT_FILE" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "Found JUnit XML: $JUNIT_FILE"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No JUnit XML files found in test-reports"
+          fi
+
+      - name: Generate issue body from JUnit XML
+        id: generate-issue
+        if: steps.find-junit.outputs.found == 'true'
+        run: |
+          JUNIT_FILE="${{ steps.find-junit.outputs.junit_file }}"
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          python3 python/tests/create_github_issue.py \
+            "$JUNIT_FILE" \
+            --output issue_body.md \
+            --commit-sha "${{ github.sha }}" \
+            --branch "${{ github.ref_name }}" \
+            --workflow-url "$WORKFLOW_URL" \
+            --artifacts "test-reports" \
+            --only-if-failed || true
+          
+          if [ -f issue_body.md ]; then
+            echo "has_failures=true" >> $GITHUB_OUTPUT
+            echo "Issue body generated successfully"
+          else
+            echo "has_failures=false" >> $GITHUB_OUTPUT
+            echo "No test failures detected or issue generation skipped"
+          fi
+
+      - name: Create GitHub Issue
+        if: steps.generate-issue.outputs.has_failures == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issueBody = fs.readFileSync('issue_body.md', 'utf8');
+            
+            // Check if similar issue already exists (same commit or recent failures)
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'tests,automated',
+              per_page: 10
+            });
+            
+            // Check if we should create a new issue or update existing
+            const commitSha = '${{ github.sha }}';
+            const existingIssue = issues.find(issue => 
+              issue.body.includes(commitSha) || 
+              issue.title.includes(new Date().toISOString().split('T')[0])
+            );
+            
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `## Updated Test Results\n\n${issueBody}`
+              });
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const title = `[TEST FAILURES] Test Run - ${new Date().toISOString().split('T')[0]} - Commit ${commitSha.substring(0, 7)}`;
+              
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: issueBody,
+                labels: ['tests', 'automated', 'bug']
+              });
+              
+              console.log(`Created issue #${issue.number}: ${issue.html_url}`);
+            }
+
