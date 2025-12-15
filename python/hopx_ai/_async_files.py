@@ -92,26 +92,9 @@ class AsyncFiles:
             File contents as bytes
         """
         client = await self._get_client()
-        content = await client.get_raw(
+        return await client.get_raw(
             f"/files/download?path={path}", operation="read binary file", context={"path": path}
         )
-
-        # Handle base64-encoded files written via write_bytes()
-        # The Agent API stores base64-encoded files as text, so /files/download
-        # may return the base64 string as bytes instead of decoded binary data.
-        # We detect and decode base64 content to ensure round-trip compatibility.
-        try:
-            # Check if content is valid base64 and decode it
-            decoded = base64.b64decode(content, validate=True)
-            # Verify by re-encoding: if it matches, this was base64-encoded data
-            if base64.b64encode(decoded) == content:
-                logger.debug(f"Decoded base64 content for {path}")
-                return decoded
-        except Exception:
-            # Not valid base64 or decode failed, return raw content
-            pass
-
-        return content
 
     async def list(self, path: str = "/workspace") -> List[FileInfo]:
         """
