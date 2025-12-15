@@ -117,26 +117,7 @@ class Files:
             timeout=timeout,
         )
 
-        content = response.content
-
-        # Handle base64-encoded files written via write_bytes()
-        # The Agent API stores base64-encoded files as text, so /files/download
-        # may return the base64 string as bytes instead of decoded binary data.
-        # We detect and decode base64 content to ensure round-trip compatibility.
-        import base64
-
-        try:
-            # Check if content is valid base64 and decode it
-            decoded = base64.b64decode(content, validate=True)
-            # Verify by re-encoding: if it matches, this was base64-encoded data
-            if base64.b64encode(decoded) == content:
-                logger.debug(f"Decoded base64 content for {path}")
-                return decoded
-        except Exception:
-            # Not valid base64 or decode failed, return raw content
-            pass
-
-        return content
+        return response.content
 
     def write(
         self, path: str, content: str, mode: str = "0644", *, timeout: Optional[int] = None
@@ -323,27 +304,8 @@ class Files:
             timeout=timeout or 60,  # Default 60s for downloads
         )
 
-        content = response.content
-
-        # Handle base64-encoded files written via write_bytes()
-        # The Agent API stores base64-encoded files as text, so /files/download
-        # may return the base64 string as bytes instead of decoded binary data.
-        # We detect and decode base64 content to ensure round-trip compatibility.
-        import base64
-
-        try:
-            # Check if content is valid base64 and decode it
-            decoded = base64.b64decode(content, validate=True)
-            # Verify by re-encoding: if it matches, this was base64-encoded data
-            if base64.b64encode(decoded) == content:
-                logger.debug(f"Decoded base64 content for {remote_path}")
-                content = decoded
-        except Exception:
-            # Not valid base64 or decode failed, use raw content
-            pass
-
         with open(local_path, "wb") as f:
-            f.write(content)
+            f.write(response.content)
 
     def exists(self, path: str, *, timeout: Optional[int] = None) -> bool:
         """
