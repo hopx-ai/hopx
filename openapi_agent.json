@@ -36,6 +36,202 @@
                 }
             }
         },
+        "/agent/update/apply": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Apply uploaded update",
+                "tags": [
+                    "Desktop"
+                ],
+                "summary": "Apply update",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/agent/update/backups": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List available backup versions",
+                "tags": [
+                    "Desktop"
+                ],
+                "summary": "List backups",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/agent/update/restart": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Restart agent with new binary",
+                "tags": [
+                    "Desktop"
+                ],
+                "summary": "Restart agent",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/agent/update/upload": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Upload new agent binary",
+                "tags": [
+                    "Desktop"
+                ],
+                "summary": "Upload update",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/cache/clear": {
             "post": {
                 "security": [
@@ -2048,7 +2244,7 @@
             }
         },
         "/execute/kill": {
-            "delete": {
+            "post": {
                 "security": [
                     {
                         "ApiKeyAuth": []
@@ -2059,17 +2255,17 @@
                     "Execution"
                 ],
                 "summary": "Kill background process",
-                "parameters": [
-                    {
-                        "description": "Process ID",
-                        "name": "process_id",
-                        "in": "query",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/main.KillProcessRequest"
+                            }
                         }
-                    }
-                ],
+                    },
+                    "description": "Kill process request",
+                    "required": true
+                },
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2647,7 +2843,7 @@
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Write content to a file (creates or overwrites)",
+                "description": "Write content to a file (creates or overwrites). Supports base64 encoding for binary files via the 'encoding' field, and custom file permissions via the 'mode' field (octal string like \"0755\").",
                 "tags": [
                     "Files"
                 ],
@@ -2675,7 +2871,7 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid JSON, missing path, invalid base64, or invalid mode",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2685,7 +2881,17 @@
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "Path not allowed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/main.ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create directory or write file",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2740,7 +2946,7 @@
                 }
             }
         },
-        "/jupyter/sessions": {
+        "/jupyter/status": {
             "get": {
                 "security": [
                     {
@@ -3071,202 +3277,6 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/main.ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/update/apply": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Apply uploaded update",
-                "tags": [
-                    "Desktop"
-                ],
-                "summary": "Apply update",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/update/backups": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "List available backup versions",
-                "tags": [
-                    "Desktop"
-                ],
-                "summary": "List backups",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/update/restart": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Restart agent with new binary",
-                "tags": [
-                    "Desktop"
-                ],
-                "summary": "Restart agent",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/update/upload": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Upload new agent binary",
-                "tags": [
-                    "Desktop"
-                ],
-                "summary": "Upload update",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": true
                                 }
                             }
                         }
@@ -3612,6 +3622,14 @@
                     "content": {
                         "type": "string"
                     },
+                    "encoding": {
+                        "description": "\"base64\" for binary files",
+                        "type": "string"
+                    },
+                    "mode": {
+                        "description": "File permissions in octal (e.g., \"0644\", \"0755\")",
+                        "type": "string"
+                    },
                     "path": {
                         "type": "string"
                     }
@@ -3642,6 +3660,14 @@
                         "type": "string"
                     },
                     "vm_id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "main.KillProcessRequest": {
+                "type": "object",
+                "properties": {
+                    "process_id": {
                         "type": "string"
                     }
                 }
