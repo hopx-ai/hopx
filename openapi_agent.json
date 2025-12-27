@@ -3610,12 +3610,30 @@
                 "type": "object",
                 "properties": {
                     "content": {
+                        "description": "File content (text or base64-encoded binary)",
                         "type": "string"
                     },
+                    "encoding": {
+                        "description": "Content encoding: 'base64' for binary files, omit for text",
+                        "type": "string",
+                        "enum": ["base64"]
+                    },
+                    "mode": {
+                        "description": "File permissions in octal format (e.g., '0644', '0755')",
+                        "type": "string",
+                        "default": "0644"
+                    },
+                    "overwrite": {
+                        "description": "Whether to overwrite existing file",
+                        "type": "boolean",
+                        "default": true
+                    },
                     "path": {
+                        "description": "Destination file path",
                         "type": "string"
                     }
-                }
+                },
+                "required": ["path", "content"]
             },
             "main.InfoResponse": {
                 "type": "object",

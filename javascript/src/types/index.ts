@@ -444,6 +444,7 @@ export interface CommandOptions {
 
 export interface FileWriteOptions {
   overwrite?: boolean;
+  mode?: string;  // File permissions (e.g., '0644', '0755')
 }
 
 export interface FileListOptions {

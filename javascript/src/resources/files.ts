@@ -31,7 +31,7 @@ export class Files {
    * Read binary file contents
    */
   async readBytes(path: string): Promise<Buffer> {
-    const response = await this.client.get<ArrayBuffer>('/files/read', {
+    const response = await this.client.get<ArrayBuffer>('/files/download', {
       params: { path },
       responseType: 'arraybuffer',
     });
@@ -40,17 +40,44 @@ export class Files {
 
   /**
    * Write text file
+   *
+   * @param path - File path (e.g., '/workspace/output.txt')
+   * @param content - File contents to write (string)
+   * @param options - Write options (overwrite, mode)
+   *
+   * @example
+   * ```typescript
+   * // Basic write
+   * await sandbox.files.write('/workspace/hello.py', 'print("Hello!")');
+   *
+   * // With custom permissions
+   * await sandbox.files.write('/workspace/script.sh', '#!/bin/bash\necho hi', { mode: '0755' });
+   * ```
    */
   async write(path: string, content: string, options?: FileWriteOptions): Promise<void> {
     await this.client.post('/files/write', {
       path,
       content,
       overwrite: options?.overwrite ?? true,
+      mode: options?.mode ?? '0644',
     });
   }
 
   /**
    * Write binary file
+   *
+   * @param path - File path (e.g., '/workspace/image.png')
+   * @param content - File contents to write (Buffer)
+   * @param options - Write options (overwrite, mode)
+   *
+   * @example
+   * ```typescript
+   * // Save binary data
+   * await sandbox.files.writeBytes('/workspace/image.png', imageBuffer);
+   *
+   * // With custom permissions
+   * await sandbox.files.writeBytes('/workspace/data.bin', buffer, { mode: '0600' });
+   * ```
    */
   async writeBytes(path: string, content: Buffer, options?: FileWriteOptions): Promise<void> {
     const base64 = content.toString('base64');
@@ -59,6 +86,7 @@ export class Files {
       content: base64,
       encoding: 'base64',
       overwrite: options?.overwrite ?? true,
+      mode: options?.mode ?? '0644',
     });
   }
 
