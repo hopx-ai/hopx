@@ -362,6 +362,11 @@ async def trigger_build(
         "update": options.update,
     }
 
+    # Add metadata if present
+    metadata = template.get_metadata()
+    if metadata.get("agent_version"):
+        payload["agent_version"] = metadata["agent_version"]
+
     # Add registry credentials if present
     if registry_auth:
         payload["registry_credentials"] = {
