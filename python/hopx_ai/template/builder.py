@@ -33,6 +33,7 @@ class Template:
         self.start_cmd: Optional[str] = None
         self.ready_check: Optional[ReadyCheck] = None
         self.registry_auth: Optional[RegistryAuth] = None
+        self._metadata: Dict[str, str] = {}  # Template metadata
 
     # ==================== Base Images ====================
 
@@ -354,6 +355,26 @@ class Template:
         if self.steps:
             self.steps[-1].skip_cache = True
         return self
+
+    # ==================== Internal Metadata ====================
+
+    def add_metadata(self, key: str, value: str) -> "Template":
+        """
+        Add metadata for build configuration.
+
+        Args:
+            key: Metadata key
+            value: Metadata value
+
+        Returns:
+            Template builder for method chaining
+        """
+        self._metadata[key] = value
+        return self
+
+    def get_metadata(self) -> Dict[str, str]:
+        """Get metadata dictionary"""
+        return self._metadata
 
     # ==================== Start Command ====================
 
