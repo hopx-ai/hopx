@@ -1749,6 +1749,10 @@
                     "name"
                 ],
                 "properties": {
+                    "agent_version": {
+                        "description": "Internal: Agent version override (hidden feature, not documented in public API)",
+                        "type": "string"
+                    },
                     "cpu": {
                         "description": "REQUIRED",
                         "type": "integer"
