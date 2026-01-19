@@ -1,59 +1,15 @@
-# Virtual environment
-venv/
-env/
-ENV/
+# Python-specific .gitignore
+# 
+# Note: Most ignore rules are defined in the root .gitignore file.
+# This file is kept for python-specific overrides only.
+#
+# If you need to add python-specific ignore patterns, add them here.
+# Otherwise, add patterns to the root .gitignore file.
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-
-# Test files
-test_live.py
-*.log
-
-# ENV
+# Python-specific environment files
 .env
-.env.local
 
-# agents
-CLAUDE.md
-.claude/
+# test report specific ignore list
+tests/reports/*
+!tests/reports/generate_manifest.py
 
-# avoid accidental garbage collection
-!README.md
-*.md
-test*.py
-check*.py
-*.txt
