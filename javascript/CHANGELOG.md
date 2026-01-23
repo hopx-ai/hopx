@@ -5,6 +5,36 @@ All notable changes to the Hopx JavaScript/TypeScript SDK will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-01-22
+
+### Security
+
+Upgraded tar from 6.2.0 to 7.5.4+ to address high-severity vulnerabilities:
+
+- Fixed arbitrary file overwrite via path sanitization (GHSA-8qq5-rm4j-mr97, CVE pending)
+- Fixed race condition via Unicode ligature collisions on macOS (GHSA-r6q2-hw4h-h46w, CVE pending)
+- **Impact**: Both vulnerabilities could allow attackers to write files outside extraction directory during tar archive extraction
+- **Resolution**: Upgraded to tar 7.5.4+ which includes comprehensive path validation and Unicode normalization
+- **Files Modified**: `package.json` (tar dependency updated from ^6.2.0 to ^7.5.4)
+
+### Dependencies
+
+Updated `tar` to ^7.5.4 (from ^6.2.0):
+
+- Major version upgrade (6.x → 7.x) with full backward compatibility for our use case
+- No breaking changes for tar creation operations (we only use `tar.create()`)
+- Improved TypeScript definitions (native types instead of @types/tar)
+- All tar options we use (`gzip`, `file`, `cwd`, `portable`, `preservePaths`) remain compatible
+
+### Notes
+
+- Template building functionality unaffected - all tests passing
+- Build and type checking successful with no regressions
+- Archive creation behavior unchanged (we create archives, don't extract them)
+- Security fixes primarily affect extraction operations (server-side handling)
+
+---
+
 ## [0.3.8] - 2025-11-27
 
 ### 🎯 Python SDK Parity Release
