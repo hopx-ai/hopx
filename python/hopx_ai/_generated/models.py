@@ -5,7 +5,12 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any, Dict, List, Optional, Union
+try:
+    from typing import Annotated
+except ImportError:
+    # Python 3.8 compatibility: Annotated was added in Python 3.9
+    from typing_extensions import Annotated
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import AnyUrl, AwareDatetime, BaseModel, Field
 

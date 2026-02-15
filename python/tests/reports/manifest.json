@@ -1,0 +1,14 @@
+{
+  "generated": "2025-12-02T03:30:07.050795",
+  "total_reports": 1,
+  "reports": [
+    {
+      "name": "all_e2e_tests",
+      "path": "all_e2e_tests/report.html",
+      "directory": "all_e2e_tests",
+      "size": 41508,
+      "date": "2025-12-02T03:30:06.665963",
+      "has_junit": true
+    }
+  ]
+}
